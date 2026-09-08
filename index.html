@@ -945,7 +945,7 @@ const CFG = {
   MINI_ON_BOARD: 2,         // сколько миниигр кочует по доске сверх стационарной клетки
   MINI_WIN: 0.55,           // шанс угадать в напёрстках
   MODS_PER_RUN: 2,
-  MOVE_MS: 210,               // время шага фишки на одну клетку (первый и последний — ×2, с разгоном/торможением)
+  MOVE_MS: 210, BAND_MIN_MS: 70,               // время шага фишки на одну клетку (первый и последний — ×2, с разгоном/торможением)
   SPEED: 1,
 };
 // ======================================================================
@@ -1835,7 +1835,14 @@ function hold(btn,fn){ // тап — одно действие; зажатие �
 async function roll(){
   if(moving||S.finished)return;
   if(S.rolls<=0)return overtimeOffer();
-  return turn();
+  // страховка: сбой внутри хода не должен оставлять кубик заблокированным
+  try{ return await turn(); }
+  catch(e){
+    console.error('turn failed',e);
+    track('turn_error',{msg:String(e&&e.message||e),stack:String(e&&e.stack||'').slice(0,400),pos:S.pos,lap:S.runLap});
+    anim=null;bAnim=null;moving=false;save();render();draw();
+    log('⚠️ Сбой на ходу — управление отпущено, прогресс сохранён.');
+  }
 }
 async function turn(){
   S.rolls--; moving=true; pan={x:0,y:0}; if(!S.fast){hideTip();render();}
@@ -1847,16 +1854,22 @@ async function turn(){
       else{const m=pay(S.jailFine);toast(`🎲 ${a} + ${b} — отпустили, списали ₽${m}`);log(`Три попытки вышли. Отпустили, списав штраф ₽${m}.`);}
       // ты сидишь, но банда ходит: её круг идёт своим чередом
       bandPlan();
-      while(S.bandLeft>0){ bandStep(CFG.MOVE_MS); await wait(CFG.MOVE_MS); }
+      while(S.bandLeft>0){ bandStep(CFG.MOVE_MS); await wait(CFG.MOVE_MS); }   // сидишь — банда идёт своим обычным темпом
       await bandLand();
       await wait(300);moving=false;save();render();
       if(S.rolls<=0)setTimeout(()=>{if(!moving)overtimeOffer();},400);return;}
   } else {track('roll',{a,b,dbl,from:S.pos});toast(`🎲 ${a} + ${b}${dbl?' — дубль!':''}`);}
   await wait(250);
   bandPlan(); // банда бросает свой кубик и идёт параллельно
-  const durs=cellDurations(total,CFG.MOVE_MS*total*1.25);
+  const walkMs=CFG.MOVE_MS*total*1.25;
+  const durs=cellDurations(total,walkMs);
+  // банда шагает своей петлёй в том же окне времени: раньше остаток её пути
+  // доходился уже после посадки игрока — до трёх секунд с мёртвыми кнопками
+  const bandWalk=(async()=>{ const bn=S.bandLeft; if(!bn)return;
+    const bms=Math.max(CFG.BAND_MIN_MS,Math.min(CFG.MOVE_MS,walkMs/bn));
+    while(S.bandLeft>0){ bandStep(bms); await wait(bms); } })();
   for(let k=0;k<total;k++){
-    bandStep(durs[k]);
+    const last=k===total-1;   // последняя клетка броска: остановка, а не проход
     const from=S.pos, to=(S.pos+1)%40;
     await step(from,to,durs[k],'lin');
     S.pos=to;
@@ -1872,7 +1885,7 @@ async function turn(){
       render();}
     else if(!unlocked(t)&&!last){const m=CFG.STREET_PASS_PER_LEVEL*level();if(m>0){S.cash+=m;S.stat.earned+=m;S.dstat.earned+=m;float(t.i,'+$'+m,'#9aa3b8');render();}} // стройка: мелочь за проход, растёт с уровнем Джонни
   }
-  while(S.bandLeft>0){ bandStep(CFG.MOVE_MS); await wait(CFG.MOVE_MS); }  // остаток пути банда доходит сама, шаг за шагом
+  await bandWalk;   // банда доходит остаток пути (обычно уже дошла)
   if(S.pos===S.band.pos) await meeting(total);   // сошлись на одной клетке
   else { await bandLand(); await land(S.tiles[S.pos]); }
   if(S.runLap>runLaps()&&!S.finished) await finishRun();
