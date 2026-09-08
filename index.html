@@ -1691,7 +1691,7 @@ function track(type,data){
   if(!S)return;
   pending.push(Object.assign({t:Date.now(),type,day:S.day,lap:S.laps,pos:S.pos,cash:S.cash,hard:S.hard,pts:S.pts,rolls:S.rolls,playMs:Math.round(S.playMs||0)},data||{}));
   try{localStorage.setItem(LOGK,JSON.stringify(pending.slice(-400)));}catch(e){}
-  if(pending.length>=25)flush();
+  if(pending.length>=6)flush();
 }
 // сводка партии в метриках «Передела», а не ивента
 function summaryDoc(){
@@ -1754,7 +1754,10 @@ async function flush(final){
 }
 function touch(){const now=Date.now();if(S&&lastAct&&now-lastAct<60000){S.playMs=(S.playMs||0)+(now-lastAct);S.dayMs=S.dayMs||{};S.dayMs[S.day]=(S.dayMs[S.day]||0)+(now-lastAct);}lastAct=now;}
 document.addEventListener('pointerdown',e=>{touch();if(!$('tip').hidden&&!e.target.closest('.qm'))hideTip();},{capture:true});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){lastAct=0;save();flush();}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){lastAct=0;save();flush(true);}});
+// закрытие вкладки: visibilitychange срабатывает не всегда, pagehide надёжнее
+window.addEventListener('pagehide',()=>{try{save();flush(true);}catch(e){}});
+window.addEventListener('beforeunload',()=>{try{save();flush(true);}catch(e){}});
 const minTxt=ms=>{const m=Math.round((ms||0)/60000);return m<1?'меньше минуты':m+' мин';};
 
 // ---------- перелёты ресурсов ----------
@@ -1859,6 +1862,7 @@ async function turn(){
   else { await bandLand(); await land(S.tiles[S.pos]); }
   if(S.runLap>runLaps()&&!S.finished) await finishRun();
   moving=false; save(); render();
+  if(!S.fast&&((S.landN||0)%3===0))flush();   // держим сводку в базе свежей по ходу партии
   if(S.rolls<=0&&!S.finished)setTimeout(()=>{if(!moving)overtimeOffer();},400);
 }
 const ease={lin:p=>p,in:p=>p*p,out:p=>1-(1-p)*(1-p),one:p=>p<.5?2*p*p:1-Math.pow(-2*p+2,2)/2};
@@ -1889,7 +1893,7 @@ function loop(now){
 }
 async function lapDone(dbl){
   S.laps++; S.runLap=(S.runLap||1)+1; unstash('you'); spawnMini();
-  if(!S.fast)histPush(summaryDoc());   // снимок партии каждый круг — видно и незаконченные
+  if(!S.fast){histPush(summaryDoc()); flush();}   // снимок партии каждый круг — видно и незаконченные
   {const dy=dominance('you'), db=dominance('band');
    if((dy||db)&&!S.finished){ S.dominance={side:dy?'you':'band', txt:(dy||db).txt}; await finishRun(); return; }} spawnMini();
   S.pat.concat(S.band.pat).forEach(p=>{if(p.hurt)p.hurt--;});
