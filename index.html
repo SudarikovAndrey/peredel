@@ -957,7 +957,8 @@ const CORE_MAP=CORE10.map.split(',').map(v=>v.split('_')[0]);
 // хата и драки убраны: круг закрывается проходом нулевой клетки, а освободившееся
 // отдано под шанс и миниигры. Кулаков остаётся 4, как в коре
 const CODE2TYPE={X:'mini',T:'kiosk',B:'biz',S:'wh',C:'chance',F:'luck',GM:'pot',J:'police'};
-const HOSPITAL_AT=3; // какой по счёту склад становится госпиталем — тип Hospital есть в ETileType кора `[код]`
+const HOSPITAL_AT=3;                 // какой по счёту склад становится госпиталем — тип Hospital есть в ETileType кора `[код]`
+const MINI_AT=new Set([1,6]);        // и какие два — минииграми: своих клеток в раскладке кора нет, режем излишек складов
 const F_ORDER=['luck','luck','luck','luck']; // четыре бывшие клетки драки — под шанс; нулевая клетка под миниигру
 // точка и бизнес берут свои числа прямо из строки конфига кора
 function buildTiles(){
@@ -966,7 +967,7 @@ function buildTiles(){
     const code=ids[i].split('_')[0], z=zoneOf(i);
     let o={i,code,cid:ids[i],type:CODE2TYPE[code],zone:z,owner:null,level:0,capLvl:1,salesLvl:1,goods:0,tier:1,guards:[]};
     if(code==='F'){o.type=F_ORDER[fi++%F_ORDER.length];}
-    if(code==='S'){ if(si++===HOSPITAL_AT)o.type='hospital'; }
+    if(code==='S'){ const n=si++; if(n===HOSPITAL_AT)o.type='hospital'; else if(MINI_AT.has(n))o.type='mini'; }
     if(o.type==='kiosk'){o.cfg=CORE10.points[pi++%CORE10.points.length];o.price=o.cfg.cost;o.price0=o.price;o.good=o.cfg.good;o.base=o.good;}
     else if(o.type==='biz'){o.cfg=CORE10.biz[bi++%CORE10.biz.length];o.price=Math.round(o.cfg.cost*CFG.BIZ_PRICE_K/10)*10;o.price0=o.price;o.level=1;}
     else o.zone=-1;
@@ -981,7 +982,6 @@ function newGame(startDay){
            buyMe:0,buyBand:0,grabMe:0,grabBand:0,lostFree:0,defMe:[],defBand:[]},mini:[],seeds:0,roundMax:0,lastDice:[3,4],mods:[],runLap:1,stars:0,pstat:{raids:0,won:0,hurt:0,rent:0},
      parcelSent:false,trend:null,loans:[],taxi:CFG.TAXI_PER_DAY,opened:[true,true,true],pot:0,jail:0,jailFine:0,tips:{},log:[],finished:false,stat:{earned:0,sold:0,parcels:0,bought:0},dstat:{earned:0,sold:0,pts:0,bought:0},q:null,bag:{},extraSlots:0,extraSlotsSoft:0,player:null,bp:{claimedFree:0,claimedPaid:0,paid:false},lbSeed:Math.floor(Math.random()*1e9),hard:CFG.START_HARD,taxiRides:0,lastTick:Date.now(),dayDate:dateKey(),runId:Math.random().toString(36).slice(2,10),startedAt:Date.now(),playMs:0,dayMs:{},sessions:1,chunkN:0};
   S.band={cash:Math.round(CFG.START_CASH*CFG.BAND_CASH),pos:CFG.BAND_START,pat:makeBand(S.pat),name:pick(BAND_NAMES),skip:0};
-  spawnMini();
   S.kulakBase=powerOf(S.pat.slice().sort((a,b)=>b.power-a.power).slice(0,CFG.RAID_MAX));
   S.kulak={lvl:1,hp:0,max:0}; S.kulak.max=S.kulak.hp=kulakMax(1);
   S.mods=MODS.slice().sort(()=>Math.random()-0.5).slice(0,CFG.MODS_PER_RUN).map(m=>m.id);
@@ -1901,10 +1901,10 @@ function loop(now){
   if((anim&&!anim.done)||bAnim||floats.length||camMoving||flyers.length)requestAnimationFrame(loop); else looping=false;
 }
 async function lapDone(dbl){
-  S.laps++; S.runLap=(S.runLap||1)+1; unstash('you'); spawnMini();
+  S.laps++; S.runLap=(S.runLap||1)+1; unstash('you');
   if(!S.fast){histPush(summaryDoc()); flush();}   // снимок партии каждый круг — видно и незаконченные
   {const dy=dominance('you'), db=dominance('band');
-   if((dy||db)&&!S.finished){ S.dominance={side:dy?'you':'band', txt:(dy||db).txt}; await finishRun(); return; }} spawnMini();
+   if((dy||db)&&!S.finished){ S.dominance={side:dy?'you':'band', txt:(dy||db).txt}; await finishRun(); return; }}
   S.pat.concat(S.band.pat).forEach(p=>{if(p.hurt)p.hurt--;});
   if(hasMod('obl')){const meBig=myTiles().length>=bandTiles().length;
     const side=meBig?S:S.band, f=Math.round(side.cash*0.03);
@@ -2104,16 +2104,6 @@ async function rentOrRaid(t){
 }
 
 // ---------- миниигры: спавнятся на доске, забираются при остановке `[код]` MiniGamesMapSpawn ----------
-function spawnMini(){
-  if(!S.mini)S.mini=[];
-  S.mini=(S.mini||[]).filter(i=>i!==S.pos&&i!==S.band.pos);
-  const busy=new Set(S.mini);
-  const spots=S.tiles.filter(t=>!busy.has(t.i)&&t.i!==S.pos&&t.i!==S.band.pos&&!t.owner);
-  while(S.mini.length<CFG.MINI_ON_BOARD&&spots.length){
-    const t=spots.splice(Math.floor(Math.random()*spots.length),1)[0];
-    S.mini.push(t.i);
-  }
-}
 async function miniGame(i){
   if(S.fast){const c=Math.round(prize('mini')*CFG.MINI_WIN);if(Math.random()<0.5){S.cash+=c;if(S.diag)S.diag.mini+=c;}else S.seeds=(S.seeds||0)+CFG.GRANNY_SEEDS_PER_EDGE*10;return;}
   const pool=[ // как в коре: миниигры дают семки и софту
@@ -2469,9 +2459,6 @@ async function land(t){
   S.landN=(S.landN||0)+1;
   track('land',{tile:t.i,ttype:t.type,owner:!!t.owner,locked:!unlocked(t)});
   if(t.drop)await collectDrop(t);
-  if((S.mini||[]).includes(t.i)){ S.mini=S.mini.filter(x=>x!==t.i);
-    if(S.fast){const c=Math.round(prize('mini')*CFG.MINI_WIN);if(Math.random()<0.5){S.cash+=c;if(S.diag)S.diag.mini+=c;}else S.seeds=(S.seeds||0)+CFG.GRANNY_SEEDS_PER_EDGE*10;}
-    else await miniGame(t.i); }
   if(!unlocked(t))return street(t);
   if(t.type==='police')return police();
   if(t.type==='pot')return potTile();
@@ -3317,7 +3304,6 @@ function draw(){
     cx.globalAlpha=lock?0.28:1;
     cx.font=`${Math.round(TW*(lock?0.28:0.34))}px sans-serif`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText(ic,x,iy);
     cx.globalAlpha=1;
-    if((S.mini||[]).includes(t.i)){cx.font=`${Math.round(TW*0.28)}px sans-serif`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('🎰',x+TW*0.22,y-TH*0.3);}
     if(t.drop){const d=t.drop;
       if(d.cash>0){drawCoins(x+TW*0.18,y-TH*0.05,coinTier(d.cash));}
       else{const dic=d.rolls?'🎲':d.hard?'$':'⚠️';cx.font=`${Math.round(TW*0.3)}px sans-serif`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText(dic,x+TW*0.2,y-TH*0.3);
