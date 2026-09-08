@@ -30,7 +30,9 @@ html,body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.35 'Suisse 
 .ava span{font-size:20px}.ava small{font-size:9px;font-weight:800}
 .round{width:32px;height:32px;border-radius:50%;background:var(--cream);color:var(--ink);padding:0;font-size:20px;font-weight:800;box-shadow:0 2px 0 #0004;margin-left:auto}
 .cur .ic{width:32px;height:32px;border-radius:0;display:inline-flex;align-items:center;justify-content:center;font-size:15px;color:#fff;font-weight:900;padding:0;background:#555;flex:0 0 auto}
-.cur .ic.g{background:#3f8f4c}.cur .ic.b{background:#3e5a8a}.cur .ic.o{background:#e0902a}
+.cur .ic.g{background:#3f8f4c}.cur .ic.b{background:#3e5a8a}.cur .ic.o{background:#e0902a}.cur .ic.y{background:#8a6a1f;font-size:13px}
+.mspb{display:block;height:3px;margin-top:3px;background:#0002;border-radius:2px;overflow:hidden}.mspb b{display:block;height:100%;background:var(--green)}
+.mbtns.stick{position:sticky;bottom:0;background:var(--cream);padding:8px 0 2px;z-index:3;box-shadow:0 -10px 14px -8px #0003}
 .qchip{position:relative;overflow:hidden;background:#2b2723e6;color:var(--cream);border:0;border-radius:8px;padding:4px 6px 6px;font-size:11px;font-weight:700;box-shadow:none;text-align:center;line-height:1.15;min-height:36px;display:flex;align-items:center;justify-content:center}
 .qchip i{position:absolute;left:0;bottom:0;height:3px;background:var(--green);width:0}
 .qchip.done{background:var(--green);color:#fff}
@@ -39,6 +41,9 @@ html,body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.35 'Suisse 
 .qchip[hidden]{display:none}
 #top>*{pointer-events:auto}
 .bar1,.bar2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;align-items:stretch}
+/* в шапке четыре счётчика: налу отдаём больше места, иконки и цифры мельче, чтобы строка не переносилась */
+.bar1{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr) minmax(0,1.05fr) minmax(0,.95fr);gap:4px}
+.bar1 .cur{font-size:13px}.bar1 .cur .ic{width:26px;height:26px;font-size:12px}.bar1 .cur b{padding:0 5px}
 .warbar{position:relative;width:100%;max-width:520px;height:17px;border-radius:11px;overflow:hidden;
   background:linear-gradient(90deg,#c9432f,#8d3320);box-shadow:0 2px 0 #0004;pointer-events:none}
 .warbar i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,#3f8f4c,#2a6135);transition:width .4s ease}
@@ -333,6 +338,7 @@ input[type=number]{width:70px;background:#fff8e8;color:var(--ink);border:1px sol
     <div class="bar1">
       <span class="cur"><i class="ic g">₽</i><b id="sCash">250</b></span>
       <span class="cur"><i class="ic b">$</i><b id="sHard">5</b></span>
+      <span class="cur"><i class="ic y">🌻</i><b id="sSeeds">0</b></span>
       <span class="cur"><i class="ic o">📅</i><b id="sDay">1/7</b></span>
     </div>
     <div class="warbar" id="warBar"><i></i><em class="me"></em><em class="them"></em><b></b></div>
@@ -874,17 +880,25 @@ const CFG = {
   POT_PER_LAP:5,                                // копилка растёт сама за круг (×день) + все штрафы
   SCATTER:{drops:6, min:5, max:20, rollsChance:0.25, hardChance:0.08}, // 🚚 инкассатор: пачки денег по стройке (×день); часть — ходы 🎲, редко — $
   HAZARD:{troubles:3},                  // 🌪 хулиганы: неприятности по стройке
-  // задания дня: фиксированная линейка на 7 дней, одинаковая для всех. easy — разогрев, hard — вызов
-  QUEST_LADDER:[
-    {easy:{id:'buy',goal:1},     hard:{id:'sell',goal:20},    reward:{rolls:10}},
-    {easy:{id:'upg',goal:2},     hard:{id:'earn',goal:1500},  reward:{cash:400}},
-    {easy:{id:'buy',goal:2},     hard:{id:'sell',goal:60},    reward:{rolls:10}},
-    {easy:{id:'upg',goal:3},     hard:{id:'earn',goal:6000},  reward:{cash:1500}},
-    {easy:{id:'buy',goal:2},     hard:{id:'sell',goal:120},   reward:{rolls:10}},
-    {easy:{id:'upg',goal:4},     hard:{id:'earn',goal:20000}, reward:{cash:4000}},
-    {easy:{id:'buy',goal:3},     hard:{id:'earn',goal:50000}, reward:{rolls:10}},
+  // ---------- миссии забега ----------
+  // Три ступени на каждую, цель считается за весь забег. Платят валютами кора: софта идёт в дело
+  // сразу, семки — в уровни бойцов (тот же PatsanUpgrade, что в коре), харда редко и по чуть-чуть.
+  // Цели с price:true пересчитываются от средней цены точки района, чтобы переносились на любой район.
+  MISSIONS:[
+    {id:'buy',    ic:'🏪', nm:'Хозяин улицы', sh:'точки',     txt:g=>`Возьми ${g} ${plural(g,'точку','точки','точек')}`,      tiers:[3,7,12]},
+    {id:'upg',    ic:'🔧', nm:'Мастеровой',   sh:'прокачки',  txt:g=>`Прокачай ${g} ${plural(g,'раз','раза','раз')}`,        tiers:[5,20,45]},
+    {id:'grab',   ic:'👊', nm:'Отжим',        sh:'отжим',     txt:g=>`Отбей ${g} ${plural(g,'точку','точки','точек')} у банды`, tiers:[1,4,9]},
+    {id:'hold',   ic:'🛡', nm:'Держим район', sh:'оборона',   txt:g=>`Отбей ${g} ${plural(g,'наезд','наезда','наездов')}`,    tiers:[1,3,7]},
+    {id:'kulak',  ic:'🥊', nm:'Кулачный бой', sh:'Кулак',     txt:g=>`Свали Кулака ${g} ${plural(g,'раз','раза','раз')}`,     tiers:[2,6,12]},
+    {id:'mono',   ic:'💎', nm:'Монополист',   sh:'монополии', txt:g=>`Собери ${g} ${plural(g,'монополию','монополии','монополий')}`, tiers:[1,2,3]},
+    {id:'buyout', ic:'🤝', nm:'Перекуп',      sh:'перекуп',   txt:g=>`Перекупи ${g} ${plural(g,'бизнес','бизнеса','бизнесов')}`, tiers:[1,2,4]},
+    {id:'heal',   ic:'🏥', nm:'Санитар',      sh:'лазарет',   txt:g=>`Подними ${g} из лазарета`,                              tiers:[5,20,45]},
+    {id:'sell',   ic:'📦', nm:'Барыга',       sh:'продажи',   txt:g=>`Продай ${g} шт`,                                        tiers:[80,300,800]},
+    {id:'earn',   ic:'💵', nm:'Касса',        sh:'касса',     txt:g=>`Заработай ₽${g}`,  price:true,                          tiers:[4,20,70]},
   ],
-  QUEST_EASY_REWARD:{rolls:4},
+  // награда ступени: cash — в долях средней цены точки района, семки и харда — числом
+  MISSION_RW:[{cash:0.4,seeds:60,hard:0},{cash:1.2,seeds:150,hard:1},{cash:3,seeds:300,hard:2}],
+  SEED_LVL_BASE:100,        // `[ГДД]` цена уровня бойца = BaseCost + BaseCost×N/10, см. 04-пацаны-и-коллекция
   FINAL:{cashPer:3000, cashCap:15, assetsPer:8000, assetsCap:15}, // итоги недели: символический зачёт нала и активов (не больше 30 очков вместе); остатки товара сгорают — очки только через фуру
   EXTRA_SLOT:{perDay:6},       // докупить место в контейнере — только за харду (HARD.slot), каждое следующее за день вдвое дороже
   STREET_PASS_PER_LEVEL:1,     // $ за проход по клетке закрытого района: × уровень Джонни
@@ -905,7 +919,9 @@ const CFG = {
   RENT_MULT: 2,             // множитель ренты (модификатор «Жадный район» поднимает до 3)
   RENT_OF_TURNOVER: 0.75,   // какую долю круговой выручки точки платит гость
   GUARD_MAX: 5,             // потолок тел на точку
-  GUARD_PER_LEVEL: 3,       // каждый третий уровень точки открывает ещё один слот охраны
+  GUARD_AT: [0,1,3,7,11],   // сколько прокачек нужно на 1-й…5-й слот охраны: ранняя тройка открывается быстро,
+                            // чтобы точка не стояла с одним бойцом. Было «каждый третий уровень» — и право
+                            // на второго охранника стоило дороже самой точки (16 371 ₽ против 12 459 ₽)
   NEIGHBOR_HELP: 0.5,       // соседняя своя клетка присылает половину силы своей охраны
   MONOPOLY: [1, 1.2, 1.45, 1.8],  // множитель выручки за 1, 2, 3 и все 4 точки одной категории
   RAID_MAX: 5,              // тел в наезде
@@ -992,27 +1008,87 @@ function newGame(startDay){
   S.kulak={lvl:1,hp:0,max:0}; S.kulak.max=S.kulak.hp=kulakMax(1);
   S.mods=MODS.slice().sort(()=>Math.random()-0.5).slice(0,CFG.MODS_PER_RUN).map(m=>m.id);
   if(hasMod('sht'))S.runLaps=Math.round(CFG.RUN_LAPS/2);
-  newQuest();
+  newMissions();
   log(`Район под «${S.band.name}». Забег на ${runLaps()} кругов, у обоих по ${S.pat.length} тел.`);
   S.mods.forEach(id=>{const m=MODS.find(x=>x.id===id);log(`Модификатор: ${m.name} — ${m.txt.toLowerCase()}`);});
   {const d=startDay||eventDay();if(d>1)latePack(d);}
   S.startVersion=VERSION;S.startCfg=cfgHash(); save(); render(); track('new_game',{v:VERSION,cfg:cfgHash(),startDay:S.day});
   setTimeout(async()=>{await askName();await intro();if(S.late)await lateModal();},50);
 }
-// ---------- задания дня: лёгкое (ритм) и сложное (вызов); цели считаются от вчерашнего результата ----------
-const QTEXT={sell:g=>`Продай ${g} шт`,buy:g=>`Возьми ${g} ${g===1?'точку':'точки'}`,upg:g=>`Прокачай ${g} раз`,parcel:g=>`—`,earn:g=>`Заработай ₽${g}`};
-function newQuest(){
-  const L=CFG.QUEST_LADDER[Math.min(S.day,CFG.QUEST_LADDER.length)-1];
-  const mk=(q,rw)=>({id:q.id,goal:q.goal,text:QTEXT[q.id](q.goal),prog:0,done:false,claimed:false,reward:rw});
-  S.q=[mk(L.easy,CFG.QUEST_EASY_REWARD),mk(L.hard,L.reward)];
+// ---------- миссии забега: достижения за захваты, прокачки и драки ----------
+const plural=(n,a,b,c)=>{const m=n%100,k=n%10;return m>10&&m<20?c:k===1?a:k>1&&k<5?b:c;};
+function newMissions(){
+  const ap=avgPrice();
+  S.ms=CFG.MISSIONS.map(m=>({id:m.id, goals:m.price?m.tiers.map(k=>Math.round(k*ap/100)*100):m.tiers.slice(), prog:0, taken:0}));
 }
-function qProg(id,n,max){if(!S.q)return;for(const q of S.q){if(q.id!==id||q.done)continue;q.prog=max?Math.max(q.prog,n):q.prog+n;if(q.prog>=q.goal){q.done=true;toast(`🎯 «${q.text}» выполнено — награда в 🎫`);}}}
-const rwText=r=>r.rolls?'+'+r.rolls+' ходов':r.hard?'+$ '+r.hard:'+$'+r.cash;
-async function questClick(){
-  if(!S.q)return;
-  const ready=S.q.filter(q=>q.done&&!q.claimed);
-  if(ready.length){for(const q of ready){const r=q.reward;if(r.rolls)S.rolls+=r.rolls;if(r.cash)S.cash+=r.cash;q.claimed=true;log(`🎯 Награда за «${q.text}»: ${rwText(r)}.`);}toast('Награда получена');save();render();return;}
-  await modal(`<h2>🎯 Задания дня</h2>`+S.q.map((q,i)=>`<div class="row"><span class="n">${i?'🔥 ':''}${q.text}<small>${i?'сложное':'разогрев'} · награда ${rwText(q.reward)}</small></span><span class="v">${q.claimed?'✓':Math.min(q.prog,q.goal)+'/'+q.goal}</span></div>`).join('')+`<p>Линейка одна для всех игроков и растёт по дням. Незабранная награда сгорает в полночь.</p>`,[{t:'Ок',v:1}]);
+const msDef=id=>CFG.MISSIONS.find(m=>m.id===id);
+const msTier=m=>m.goals.filter(g=>m.prog>=g).length;      // сколько ступеней взято по факту
+const msReady=m=>msTier(m)-m.taken;                       // сколько наград ждёт
+const msReadyN=()=>(S.ms||[]).reduce((a,m)=>a+Math.max(0,msReady(m)),0);
+const msGoal=m=>m.goals[Math.min(m.goals.length-1,msTier(m))];
+const msRatio=m=>Math.min(1,m.prog/msGoal(m));
+const msDone=m=>msTier(m)>=m.goals.length&&msReady(m)<=0;
+function msReward(i){const r=CFG.MISSION_RW[i];return{cash:Math.round(r.cash*avgPrice()/10)*10, seeds:r.seeds, hard:r.hard};}
+const msRwText=i=>{const r=msReward(i);return `₽${shortN(r.cash)} · 🌻${r.seeds}${r.hard?' · $'+r.hard:''}`;};
+function mProg(id,n,max){
+  if(!S.ms)return; const m=S.ms.find(x=>x.id===id); if(!m)return;
+  const was=msTier(m); m.prog=max?Math.max(m.prog,n):m.prog+n; const now=msTier(m);
+  if(now>was&&!S.fast){const d=msDef(id);toast(`${d.ic} «${d.nm}» ступень ${now} взята — забери ${msRwText(now-1)}`);}
+}
+function qProg(id,n,max){mProg(id,n,max);}                // старые вызовы ведут в миссии
+function msClaim(i,from){
+  const m=S.ms[i]; if(!m||msReady(m)<=0)return null;
+  const got={cash:0,seeds:0,hard:0}; let tier=0;
+  while(msReady(m)>0){const r=msReward(m.taken);got.cash+=r.cash;got.seeds+=r.seeds;got.hard+=r.hard;m.taken++;tier=m.taken;}
+  S.cash+=got.cash; S.seeds=(S.seeds||0)+got.seeds; S.hard+=got.hard;
+  const src=from||AT.card();
+  if(!S.fast){
+    if(got.cash)fly('💵',src,AT.cash(),flyN(got.cash),{pulse:'sCash'});
+    if(got.seeds)fly('🌻',src,AT.el('sSeeds'),3,{delay:120,pulse:'sSeeds'});
+    if(got.hard)fly('💠',src,AT.hard(),2,{delay:240,pulse:'sHard'});
+  }
+  const d=msDef(m.id);
+  log(`${d.ic} «${d.nm}» ступень ${tier}: ₽${got.cash}, 🌻${got.seeds}${got.hard?', $'+got.hard:''}.`);
+  track('mission_claim',{id:m.id,tier,cash:got.cash,seeds:got.seeds,hard:got.hard,lap:S.runLap});
+  save(); render();
+  return got;
+}
+function msClaimAll(from){
+  let n=0, got={cash:0,seeds:0,hard:0};
+  (S.ms||[]).forEach((m,i)=>{const g=msClaim(i,from);if(g){n++;got.cash+=g.cash;got.seeds+=g.seeds;got.hard+=g.hard;}});
+  if(n&&!S.fast)toast(`Забрано наград: ${n} · ₽${got.cash} · 🌻${got.seeds}${got.hard?' · $'+got.hard:''}`);
+  return n;
+}
+// сколько категорий собрано полностью — цель миссии «Монополист»
+function fullMonos(side){let n=0;
+  for(const g of CORE10.goods){const all=S.tiles.filter(t=>t.type==='kiosk'&&t.good===g.id&&unlocked(t));
+    if(all.length&&all.every(t=>t.owner===side))n++;}
+  return n;}
+// две миссии на полоску: сначала готовые к сдаче, потом ближайшие к ступени
+function msChips(){
+  const list=(S.ms||[]).map((m,i)=>({m,i})).filter(x=>!msDone(x.m));
+  list.sort((a,b)=>{const ra=msReady(a.m)>0?1:0, rb=msReady(b.m)>0?1:0;
+    return ra!==rb?rb-ra:msRatio(b.m)-msRatio(a.m);});
+  return list.slice(0,2);
+}
+async function missionList(){
+  const rows=()=>(S.ms||[]).map((m,i)=>{
+    const d=msDef(m.id), tier=msTier(m), ready=msReady(m)>0, done=msDone(m);
+    const goal=msGoal(m), step=Math.min(m.goals.length,tier+(done?0:1));
+    return `<div class="row"><span class="n">${d.ic} ${d.nm} <small>${done?'все три ступени взяты':`${d.txt(goal)} · ступень ${step}/3 · ${msRwText(Math.min(2,tier))}`}</small>
+        <i class="mspb"><b style="width:${Math.round((done?1:msRatio(m))*100)}%"></b></i></span>
+      ${ready?`<button class="sm ok blink" data-ms="${i}">Забрать</button>`:done?'<span class="v">✓</span>':`<span class="v">${shortN(Math.min(m.prog,goal))}/${shortN(goal)}</span>`}</div>`;}).join('');
+  const paint=()=>{
+    $('modal').classList.add('mid'); $('card').className='card';
+    $('card').innerHTML=`<h2>🎯 Миссии забега</h2>
+      <p class="t">Цели считаются за весь забег, награда не сгорает. Софта идёт в дело сразу, семки — в уровни бойцов, харда капает по чуть-чуть.</p>
+      ${rows()}
+      <div class="mbtns stick"><button class="ok" id="msAll" ${msReadyN()?'':'disabled'}>Забрать всё${msReadyN()?' · '+msReadyN():''}</button><button class="sec" id="msNo">Закрыть</button></div>`;
+    $('card').querySelectorAll('button[data-ms]').forEach(b=>b.onclick=()=>{msClaim(+b.dataset.ms,AT.card());paint();draw();});
+    $('msAll').onclick=()=>{msClaimAll(AT.card());paint();draw();};
+    $('msNo').onclick=()=>closeModal();
+  };
+  paint(); await openCustom(); save(); render();
 }
 
 // ---------- хаб ивента: билет, Джонни, задания, район, поставка ----------
@@ -1065,13 +1141,16 @@ async function eventHub(tab){ if(tab)hubTab=tab;
       ${(()=>{const max=CFG.MILESTONES.slice(-1)[0].pts,pc=Math.min(100,S.pts/max*100),nm=nextMilestone();return `<div class="row" style="border:0;padding:2px 0"><span class="n">${nm?`До «${nm.name}» ещё ${nm.pts-S.pts}`:'Все рубежи взяты'}</span><span class="v">🎫 ${S.pts}</span></div>
         <div class="msbar"><i style="width:${pc}%"></i>${CFG.MILESTONES.map(m=>`<span class="tick ${S.pts>=m.pts?'done':''}" style="left:${m.pts/max*100}%"><b></b><small>${m.pts}</small></span>`).join('')}<em style="left:${pc}%">${S.pts}</em></div>`;})()}
       <div class="ms3">${CFG.MILESTONES.map((m,i)=>`<div class="msc ${S.pts>=m.pts?'done':(nextMilestone()&&nextMilestone().pts===m.pts?'next':'')}"><span class="msi">${['🎫','🎖','🏆'][i]}</span><b>${m.pts}</b><span class="msn">${m.name}</span><small>${m.reward}</small><i>${S.pts>=m.pts?'✓':'🔒'}</i></div>`).join('')}</div>
-      <p class="dim" style="margin-top:12px">🎯 Задания дня</p>
-      ${S.q.map((q,i)=>`<div class="row"><span class="n">${i?'🔥 ':''}${q.text}<small>${rwText(q.reward)}</small></span>${q.claimed?'<span class="v">✓</span>':q.done?`<button class="sm ok" data-claim="${i}">Забрать</button>`:`<span class="v">${Math.min(q.prog,q.goal)}/${q.goal}</span>`}</div>`).join('')}
+      <p class="dim" style="margin-top:12px">🎯 Миссии забега${msReadyN()?` · <b style="color:var(--green)">наград ждёт ${msReadyN()}</b>`:''}</p>
+      ${(S.ms||[]).slice(0,4).map((m,i)=>{const d=msDef(m.id),goal=msGoal(m),ready=msReady(m)>0,done=msDone(m);
+        return `<div class="row"><span class="n">${d.ic} ${d.nm}<small>${done?'взято всё':d.txt(goal)}</small></span>${ready?`<button class="sm ok" data-claim="${i}">Забрать</button>`:done?'<span class="v">✓</span>':`<span class="v">${shortN(Math.min(m.prog,goal))}/${shortN(goal)}</span>`}</div>`;}).join('')}
+      <div class="row"><span class="n">Все миссии списком<small>десять целей, по три ступени</small></span><button class="sm sec" id="hMs">Открыть</button></div>
       ${nz>0?`<div class="row" style="margin-top:6px"><span class="n">🔒 ${CFG.ZONES[nz].name}</span><button class="sm hard" id="hZone" ${S.hard<zonePrice(nz)?'disabled':''}>$${zonePrice(nz)}<small>бесплатно в день ${CFG.ZONES[nz].day}</small></button></div>`:''}
       <div class="mbtns"><button class="sec" id="hJ">🧢 Джонни</button><button class="sec" id="hHelp" style="flex:0 0 52px">?</button></div>${tabs}`;
     }
     $('card').querySelectorAll('button[data-tab]').forEach(b=>b.onclick=()=>{hubTab=b.dataset.tab;track('hub_tab',{tab:hubTab});draw();});
-    $('card').querySelectorAll('button[data-claim]').forEach(b=>b.onclick=()=>{const q=S.q[+b.dataset.claim],r=q.reward;track('quest_claim',{id:q.id,goal:q.goal,reward:r});if(r.rolls){fly('🎲',AT.card(),AT.dice(),3);S.rolls+=r.rolls;}if(r.cash){fly('💵',AT.card(),AT.cash(),flyN(r.cash),{pulse:'sCash'});S.cash+=r.cash;}q.claimed=true;log(`🎯 Награда за «${q.text}»: ${rwText(r)}.`);toast('Награда получена');save();render();draw();});
+    $('card').querySelectorAll('button[data-claim]').forEach(b=>b.onclick=()=>{msClaim(+b.dataset.claim,AT.card());draw();});
+    const hms=$('hMs'); if(hms)hms.onclick=async()=>{closeModal();await missionList();};
     const hz=$('hZone'); if(hz)hz.onclick=async()=>{closeModal();await offerOpen(nz);};
     const hj=$('hJ'); if(hj)hj.onclick=async()=>{closeModal();await johnny();};
     const hh=$('hHelp'); if(hh)hh.onclick=async()=>{closeModal();await intro();};
@@ -1159,7 +1238,7 @@ function migrate(){
   const d={overtime:0,pts:0,xp:0,laps:0,parcelSent:false,trend:null,loans:[],taxi:CFG.TAXI_PER_DAY,opened:[true,false,false],pot:0,jail:0,jailFine:0,tips:{},log:[],finished:false,
     stat:{earned:0,sold:0,parcels:0,bought:0},dstat:{earned:0,sold:0,pts:0,bought:0},bag:{},extraSlots:0,extraSlotsSoft:0,player:null,bp:{claimedFree:0,claimedPaid:0,paid:false},lbSeed:Math.floor(Math.random()*1e9),hard:CFG.START_HARD,taxiRides:0,lastTick:Date.now(),dayDate:dateKey(),runId:Math.random().toString(36).slice(2,10),startedAt:Date.now(),playMs:0,dayMs:{},sessions:0,chunkN:0};
   for(const k in d)if(S[k]===undefined)S[k]=typeof d[k]==='object'?JSON.parse(JSON.stringify(d[k])):d[k];
-  if(!Array.isArray(S.q))newQuest();
+  if(!Array.isArray(S.ms))newMissions();
   if(!S.lastTick)S.lastTick=Date.now(); if(!S.dayDate)S.dayDate=dateKey();
   if(S.loan&&!(S.loans||[]).length){S.loans=[{tier:1,name:'Обычный',principal:S.loan.principal,rate:0.08,strikes:S.loan.strikes||0,maxStrikes:2}];} S.loan=undefined;
   if(!Array.isArray(S.tiles)||S.tiles.length!==40)S.tiles=buildTiles();
@@ -1198,7 +1277,18 @@ function rentOf(t){
   const turnover=Math.round(sales(t)*m*monoMult(t.owner,t.good));
   return Math.max(1,Math.round((fee(t)+turnover*CFG.RENT_OF_TURNOVER)*rentMult()/2));
 }
-function makePatsan(nm,lvl){const rank=lvl>=25?3:lvl>=16?2:1;return{name:nm,lvl,rank,power:Math.round(lvl*(1+rank*0.25)),where:null,hurt:0};}
+const patRank=lvl=>lvl>=25?3:lvl>=16?2:1;                 // ранг по уровню, как в коре: 10 уровней на ранг
+const patPower=lvl=>Math.round(lvl*(1+patRank(lvl)*0.25));
+function makePatsan(nm,lvl){return{name:nm,lvl,rank:patRank(lvl),power:patPower(lvl),where:null,hurt:0};}
+// сток семок — тот же, что в коре: покупной уровень бойца. `[ГДД]` LevelUpCost = BaseCost + BaseCost×N/10
+const seedCost=lvl=>Math.round(CFG.SEED_LVL_BASE*(1+(lvl+1)/10));
+function levelUp(p){
+  const c=seedCost(p.lvl); if((S.seeds||0)<c)return false;
+  S.seeds-=c; p.lvl++; p.rank=patRank(p.lvl); p.power=patPower(p.lvl);
+  S.seedSpent=(S.seedSpent||0)+c; S.lvlBought=(S.lvlBought||0)+1;
+  track('patsan_upgrade',{name:p.name,lvl:p.lvl,cost:c,power:p.power,lap:S.runLap});
+  return true;
+}
 function makeCollection(){const c=CFG.COLLECTION,ns=NAMES.slice().sort(()=>Math.random()-0.5);
   return Array.from({length:c.count},(_,i)=>makePatsan(ns[i%ns.length]+(i>=ns.length?' мл.':''),rndi(c.lvlMin,c.lvlMax)));}
 function makeBand(mine){const ns=NAMES.slice().sort(()=>Math.random()-0.5);
@@ -1206,9 +1296,18 @@ function makeBand(mine){const ns=NAMES.slice().sort(()=>Math.random()-0.5);
 const freeBodies=side=>side.pat.filter(p=>!p.where&&!p.hurt);
 const powerOf=list=>list.reduce((a,p)=>a+p.power,0);
 const guardPower=t=>powerOf(t.guards||[]);
-// слотов охраны тем больше, чем выше уровень точки: 1 на старте, 5 на максимуме
+// слотов охраны тем больше, чем больше прокачек в точке — лестница в CFG.GUARD_AT
 // бизнес силой не берут, поэтому и охранять его нечем
-const guardMax=t=>t.type==='biz'?0:Math.max(1,Math.min(CFG.GUARD_MAX,1+Math.floor(klevel(t)/CFG.GUARD_PER_LEVEL)));
+const upgN=t=>Math.max(0,klevel(t)-1);          // сколько прокачек сделано: klevel считает с единицы
+function guardMax(t){ if(t.type==='biz')return 0;
+  const u=upgN(t); let n=1;
+  for(let k=1;k<CFG.GUARD_AT.length;k++) if(u>=CFG.GUARD_AT[k]) n=k+1;
+  return Math.min(CFG.GUARD_MAX,n); }
+// сколько прокачек до следующего слота — показываем на плашке, чтобы связь была видна
+function guardNext(t){ if(t.type==='biz')return null;
+  const u=upgN(t), mx=guardMax(t);
+  if(mx>=CFG.GUARD_MAX)return null;
+  return {slot:mx+1, need:CFG.GUARD_AT[mx]-u}; }
 // вложено в объект: покупка плюс все прокачки — от этой суммы считается перекуп
 const invested=t=>t.invested||t.price;
 const buyoutPrice=t=>Math.round(invested(t)*CFG.BUYOUT_MARKUP/10)*10;
@@ -1346,6 +1445,8 @@ function grab(t,to){
     t.goods=0;
   }
   dropGuards(t); t.owner=to;   // охрану новый хозяин ставит сам — сама она не появляется
+  if(to==='you'){ if(prev==='band')mProg('grab',1); mProg('mono',fullMonos('you'),true); }
+  else if(prev==='you')mProg('mono',fullMonos('you'),true);
 }
 // разложить загашник обратно по своим точкам, где есть место
 function unstash(side){
@@ -1427,7 +1528,7 @@ async function guardPicker(t){
     const cards=order.map(o=>pCard(o.p,o.state,o.i)).join('');
     $('modal').classList.add('mid'); $('card').className='card';
     $('card').innerHTML=`<h2 class="one">🛡 Охрана · ${t.type==='biz'?bizName(t):pointName(t)}</h2>
-      <div class="row"><span class="n">Слотов ${g.length}/${mx}<small>слоты открываются с уровнем точки</small></span>
+      <div class="row"><span class="n">Слотов ${g.length}/${mx}<small>${(()=>{const nx=guardNext(t);return nx?`ещё ${nx.need} ${plural(nx.need,'прокачка','прокачки','прокачек')} — ${nx.slot}-й слот`:'все слоты открыты';})()}</small></span>
         <span class="v">оборона ${defPower(t)}${help?` <small style="color:var(--green)">+${help} соседи</small>`:''}</span></div>
       ${sortTabs()}
       ${pickBar('снять охрану')}
@@ -1471,7 +1572,7 @@ async function offerGuard(t){
   const v=await modal(`<h2>🛡 Точка пустая</h2>
     <p class="t">${name(t)} теперь твоя, но там никого. <b>Без охраны её заберут даром</b> —
     банде хватит просто встать на клетку.</p>
-    <div class="row"><span class="n">Слотов охраны</span><span class="v">${guardMax(t)}</span></div>
+    <div class="row"><span class="n">Слотов охраны<small>${(()=>{const nx=guardNext(t);return nx?`ещё ${nx.need} ${plural(nx.need,'прокачка','прокачки','прокачек')} — ${nx.slot}-й`:'потолок';})()}</small></span><span class="v">${guardMax(t)}</span></div>
     <div class="row"><span class="n">Свободных людей</span><span class="v">${freeBodies(S).length}</span></div>`,
     [{t:'🛡 Поставить',v:1,cls:'ok'},{t:'Рискну',v:0,cls:'sec'}]);
   if(v===1) await guardPicker(t);
@@ -1574,7 +1675,7 @@ function latePack(d){ // новая партия с дня d>1
   const n=L.points[Math.min(d,CFG.DAYS)-1]||0,given=[];
   for(let k=0;k<n;k++){const t=S.tiles.find(x=>x.type==='kiosk'&&x.zone===0&&!x.owner);if(!t)break;t.owner='you';t.capLvl=(t.cfg?t.cfg.upg:11);t.salesLvl=(t.cfg?t.cfg.upg:11);t.goods=cap(t);given.push(t.i);}
   const t=given.length?S.tiles[given[0]]:null;
-  S.late={day:d,cash,tile:t?t.i:null,tiles:given};newQuest();
+  S.late={day:d,cash,tile:t?t.i:null,tiles:given};
   log(`Приехал на день ${d}. Джонни подсуетился: ₽${cash}${t?' и '+pointName(t)+' с товаром':''}.`);track('late_start',{day:d,cash,tile:t?t.i:null});
 }
 async function lateModal(){const l=S.late,t=l.tile!=null?S.tiles[l.tile]:null;
@@ -1720,6 +1821,9 @@ function summaryDoc(){
     mods:(S.mods||[]).slice(), band:S.band?S.band.name:null,
     capYou:capitalOf('you'), capBand:capitalOf('band'),
     cash:S.cash, cashBand:S.band?S.band.cash:0, hard:S.hard, seeds:S.seeds||0,
+    seedSpent:S.seedSpent||0, lvlBought:S.lvlBought||0,
+    msTaken:(S.ms||[]).reduce((a,m)=>a+m.taken,0), msReady:msReadyN(),
+    ms:(S.ms||[]).map(m=>({id:m.id,prog:m.prog,taken:m.taken,goal:msGoal(m)})),
     tilesYou:my.length, tilesBand:th.length,
     kiosksYou:my.filter(t=>t.type==='kiosk').length, bizYou:my.filter(t=>t.type==='biz').length,
     defYou:avg(my.map(t=>defPower(t))), defBand:avg(th.map(t=>defPower(t))),
@@ -1810,7 +1914,7 @@ function modal(html,btns,opt){
   $('modal').classList.remove('closing');$('modal').classList.remove('mid');
   $('card').className='card';$('card').style.removeProperty('--cs');
   hideTip();
-  setTimeout(()=>{const dc=$('card').querySelector&&document.getElementById('dClaim');if(dc)dc.onclick=()=>{S.q.filter(q=>q.done&&!q.claimed).forEach(q=>{const r=q.reward;if(r.rolls){S.rolls+=r.rolls;S.carryRolls=(S.carryRolls||0)+r.rolls;}if(r.cash)S.cash+=r.cash;q.claimed=true;track('quest_claim',{id:q.id,goal:q.goal,reward:r});});dc.textContent='✓';dc.disabled=true;toast('Награды получены');save();render();};},0);
+  setTimeout(()=>{const dc=$('card').querySelector&&document.getElementById('dClaim');if(dc)dc.onclick=()=>{msClaimAll(AT.card());dc.textContent='✓';dc.disabled=true;save();render();};},0);
   $('card').innerHTML=html+'<div class="mbtns">'+btns.map((b,i)=>`<button class="${b.cls||''}" data-i="${i}" ${b.dis?'disabled':''}>${b.t}</button>`).join('')+'</div>';
   $('card').querySelectorAll('.mbtns button').forEach(b=>b.onclick=()=>closeModal(btns[+b.dataset.i].v));
   $('modal').hidden=false;
@@ -2038,7 +2142,7 @@ async function bandLand(){
       log(`Банда отжала ${name(t)}: у тебя пало ${мои.length}, у них ${их.length}.`);
       if(!S.fast){float(t.i,'отжали','#ff6a55');toast(`Банда отжала точку · −${мои.length}`);}
     }else{
-      toLazaret(их); toLazaretDef(мои); payRent('band',t,rent*2);
+      toLazaret(их); toLazaretDef(мои); payRent('band',t,rent*2); mProg('hold',1);
       log(`Отбились на ${name(t)}: полегло ${мои.length}, у них ${их.length}. Банда платит вдвойне.`);
       if(!S.fast){float(t.i,'отбились','#5ddb8a');toast(`Отбились · −${мои.length}`);}
     }
@@ -2061,7 +2165,7 @@ async function rentOrRaid(t){
   if(t.type==='biz'){                       // бизнес силой не берут — только перекупают
     const cost=buyoutPrice(t);
     if(S.fast){
-      if(S.cash>=cost+BOT.keepForTile){S.cash-=cost;S.band.cash+=cost;t.owner='you';t.invested=cost;if(S.diag)S.diag.grabMe++;}
+      if(S.cash>=cost+BOT.keepForTile){S.cash-=cost;S.band.cash+=cost;t.owner='you';t.invested=cost;if(S.diag)S.diag.grabMe++;mProg('buyout',1);}
       else payRent('you',t,rent);
       return;
     }
@@ -2074,7 +2178,7 @@ async function rentOrRaid(t){
       [{t:`💵 Заплатить ₽${rent}`,v:0,cls:'sec'},{t:`🤝 Перекупить ₽${cost}`,v:1,cls:'ok',dis:S.cash<cost}]);
     if(v===1){
       S.cash-=cost; S.band.cash+=cost; t.owner='you'; t.invested=cost;
-      if(S.diag)S.diag.grabMe++;
+      if(S.diag)S.diag.grabMe++; mProg('buyout',1);
       fly('💵',AT.cash(),AT.tile(t.i),flyN(cost));
       log(`🤝 Перекупил ${bizName(t)} за ₽${cost} — вложено было ₽${Math.round(cost/CFG.BUYOUT_MARKUP)}.`);
       toast('Бизнес твой');
@@ -2270,7 +2374,7 @@ async function hospital(){
       paint();
     });
     $('hOk').onclick=()=>{
-      pick.forEach(p=>p.hurt=0);
+      pick.forEach(p=>p.hurt=0); mProg('heal',pick.length);
       log(`🏥 Госпиталь поднял: ${pick.map(p=>p.name).join(', ')}.`);
       toast(`В строю: ${pick.length}`);
       save(); render(); draw(); closeModal(1);
@@ -2358,7 +2462,7 @@ function kulakStrike(who,squad){
   if(S.kulak.hp<=0){
     const win=kulakPrize(S.kulak.lvl), lvl=S.kulak.lvl;
     side.cash+=win;
-    if(who==='you'){S.pstat.won++;S.kulakBest=Math.max(S.kulakBest||0,lvl);if(S.diag)S.diag.kulak+=win;}
+    if(who==='you'){S.pstat.won++;S.kulakBest=Math.max(S.kulakBest||0,lvl);if(S.diag)S.diag.kulak+=win;mProg('kulak',1);}
     S.kulak.lvl++; S.kulak.max=S.kulak.hp=kulakMax(S.kulak.lvl);
     return{kill:true,dmg,win,lvl};
   }
@@ -2899,10 +3003,10 @@ async function sleep(auto){
     <div class="row"><span class="n">Куплено точек</span><span class="v">${d.bought}</span></div>
     <div class="row"><span class="n">🎫 Билет Джонни</span><span class="v">${Math.min(S.pts,CFG.TICKET_PTS)}/${CFG.TICKET_PTS}${S.pts>=CFG.TICKET_PTS?' ✓':''}</span></div>
     <div class="row"><span class="n">⏱ Игра сегодня</span><span class="v">${minTxt((S.dayMs||{})[S.day])}</span></div>
-    ${S.q&&S.q.some(q=>q.done&&!q.claimed)?`<div class="row"><span class="n">🎁 Незабранные награды<small>сгорят с началом нового дня</small></span><button class="sm ok blink" id="dClaim">Забрать</button></div>`:''}`,[{t:'Дальше',v:1,cls:'ok'}],{sticky:false});
-  track('day_end',{d,dayMs:(S.dayMs||{})[S.day]||0,points:myKiosks().length,opened:S.opened.filter(Boolean).length,q:S.q.map(q=>({id:q.id,done:q.done,claimed:q.claimed}))});
+    ${msReadyN()?`<div class="row"><span class="n">🎁 Награды миссий<small>ждут, не сгорают</small></span><button class="sm ok blink" id="dClaim">Забрать ${msReadyN()}</button></div>`:''}`,[{t:'Дальше',v:1,cls:'ok'}],{sticky:false});
+  track('day_end',{d,dayMs:(S.dayMs||{})[S.day]||0,points:myKiosks().length,opened:S.opened.filter(Boolean).length,ms:(S.ms||[]).map(m=>({id:m.id,prog:m.prog,taken:m.taken}))});
   S.dstat={earned:0,sold:0,pts:0,bought:0};(S.ptsHist=S.ptsHist||[]).push(S.pts);if(S.day===2)setTimeout(()=>hint('twoSessions','Ходы восстанавливаются за несколько часов. Второй заход вечером почти удваивает очки за день — самые сильные игроки заходят дважды.'),800);
-  S.day++;if(!CFG.REAL_DAYS||!auto)S.rolls=CFG.ROLLS_PER_DAY+(S.carryRolls||0);S.carryRolls=0;S.overtime=0;S.dayDate=dateKey();S.parcelSent=false;S.trend=null;S.taxi=CFG.TAXI_PER_DAY;S.taxiRides=0;S.jail=0;S.extraSlots=0;S.extraSlotsSoft=0;newQuest();
+  S.day++;if(!CFG.REAL_DAYS||!auto)S.rolls=CFG.ROLLS_PER_DAY+(S.carryRolls||0);S.carryRolls=0;S.overtime=0;S.dayDate=dateKey();S.parcelSent=false;S.trend=null;S.taxi=CFG.TAXI_PER_DAY;S.taxiRides=0;S.jail=0;S.extraSlots=0;S.extraSlotsSoft=0;   // миссии живут весь забег и в полночь не обнуляются
   if(S.day>CFG.DAYS)return finishRun();
   const msgs=[`☀️ День ${S.day}.`];
   CFG.ZONES.forEach((z,zi)=>{if(z.day<=S.day&&!S.opened[zi])msgs.push(openZone(zi,0));});
@@ -2977,7 +3081,24 @@ function autoGuards(){
 function patRow(p,extra){return `<span class="pchip${extra||''}">${p.name} <i>${p.lvl}</i>${p.hurt?' 🩹'+p.hurt:''}</span>`;}
 async function squadWindow(){
   const done=openCustom();
+  let upFor=null;                     // выбранный боец: показываем окно прокачки в том же модале
   const paint=()=>{
+    if(upFor){
+      const p=upFor, c=seedCost(p.lvl), can=(S.seeds||0)>=c;
+      $('modal').classList.add('mid'); $('card').className='card';
+      $('card').innerHTML=`<h2 class="one">${p.name} · ур. ${p.lvl}</h2>
+        <p class="t">${p.hurt?`В отключке ещё ${p.hurt} ${plural(p.hurt,'круг','круга','кругов')}.`:p.where!=null?`Держит ${name(S.tiles[p.where])}.`:'В строю, свободен.'}</p>
+        <div class="row"><span class="n">Сила<small>ранг ${p.rank}${patRank(p.lvl+1)>p.rank?' → следующий уровень поднимает ранг':''}</small></span><span class="v">${p.power} → ${patPower(p.lvl+1)}</span></div>
+        <div class="row"><span class="n">Уровень за семки<small>тот же PatsanUpgrade, что в коре</small></span><span class="v">🌻 ${c}</span></div>
+        <div class="row"><span class="n">У тебя семок<small>копятся с миссий, Бабки и находок</small></span><span class="v">🌻 ${S.seeds||0}</span></div>
+        <div class="mbtns"><button class="ok" id="pUp" ${can?'':'disabled'}>🌻 ${can?'Поднять уровень':'Не хватает '+(c-(S.seeds||0))}</button><button class="sec" id="pBack">Назад</button></div>`;
+      $('pUp').onclick=()=>{const was=p.lvl; if(levelUp(p)){
+        fly('🌻',AT.el('sSeeds'),AT.card(),3,{pulse:'sSeeds'});
+        log(`🌻 ${p.name}: ур. ${was} → ${p.lvl}, сила ${p.power}. Списано ${seedCost(was)} семок.`);
+        toast(`${p.name} — ур. ${p.lvl}, сила ${p.power}`); save(); render(); draw(); paint();}};
+      $('pBack').onclick=()=>{upFor=null;paint();};
+      return;
+    }
     const stateOf=p=>p.hurt?'hurt':p.where!=null?'busy':'free';
     const order=patOrder(stateOf);
     const free=S.pat.filter(p=>!p.where&&!p.hurt).length, onTile=S.pat.filter(p=>p.where!=null).length, hurt=S.pat.filter(p=>p.hurt).length;
@@ -2986,17 +3107,13 @@ async function squadWindow(){
     $('card').innerHTML=`<h2>👥 Пацаны · ${S.pat.length}</h2>
       <div class="pstats"><span class="ok">В строю <b>${free}</b></span><span>На точках <b>${onTile}</b></span>
         <span class="bad">В отключке <b>${hurt}</b></span><span>🌻 <b>${S.seeds||0}</b></span></div>
+      <p class="t">Семки идут в уровни: жми карточку бойца. Уровень остаётся с ним и после забега.</p>
       ${naked?`<p class="t">Без охраны стоит точек: <b>${naked}</b> — такие банда забирает даром.</p>`:''}
       ${sortTabs()}
       <div class="pgrid">${order.map(o=>pCard(o.p,o.state,o.i)).join('')}</div>
       <div class="mbtns"><button class="ok" id="pAutoAll" ${naked&&free?'':'disabled'}>Расставить по точкам</button><button class="sec" id="pClose">Закрыть</button></div>`;
     bindSort(paint);
-    $('card').querySelectorAll('.pcard').forEach(b=>b.onclick=()=>{
-      const p=S.pat[+b.dataset.p];
-      if(p.hurt){toast(`${p.name} в отключке ещё ${p.hurt} ${p.hurt===1?'круг':'круга'}`);return;}
-      if(p.where!=null){const t=S.tiles[p.where];toast(`${p.name} держит ${name(t)}`);return;}
-      toast(`${p.name} свободен — ставь его на точку или бери в налёт`);
-    });
+    $('card').querySelectorAll('.pcard').forEach(b=>b.onclick=()=>{upFor=S.pat[+b.dataset.p];paint();});
     $('pAutoAll').onclick=()=>{ myTiles().forEach(t=>{ while((t.guards||[]).length<guardMax(t)&&freeBodies(S).length>CFG.RAID_MAX) addGuard(t,S,1); });
       log('Расставил охрану автоматом.'); save(); render(); draw(); paint(); };
     $('pClose').onclick=()=>closeModal(1);
@@ -3036,7 +3153,8 @@ async function finishRun(){
   track('run_end',{stars,cy,cb,my,th,mods:S.mods,raids:S.pstat.raids,won:S.pstat.won,hurt:S.pstat.hurt,rent:S.pstat.rent,laps:S.laps});
   if(S.diag){myTiles().forEach(t=>S.diag.defMe.push(defPower(t)));bandTiles().forEach(t=>S.diag.defBand.push(defPower(t)));}
   if(!S.fast){histPush(summaryDoc()); flush(true);}
-  S.result={stars,cy,cb,my,th,diag:S.diag,kulakBest:S.kulakBest||0,mods:S.mods.slice(),raids:S.pstat.raids,won:S.pstat.won,hurt:S.pstat.hurt,rent:S.pstat.rent,seeds:S.seeds||0,laps:S.laps,kulak:S.kulak?S.kulak.lvl:1};
+  S.result={stars,cy,cb,my,th,diag:S.diag,kulakBest:S.kulakBest||0,mods:S.mods.slice(),raids:S.pstat.raids,won:S.pstat.won,hurt:S.pstat.hurt,rent:S.pstat.rent,seeds:S.seeds||0,laps:S.laps,kulak:S.kulak?S.kulak.lvl:1,
+    msTaken:(S.ms||[]).reduce((a,m)=>a+m.taken,0),seedSpent:S.seedSpent||0,lvlBought:S.lvlBought||0};
   if(S.fast)return;
   save();render();
   await modal(`<h2>${S.dominance?(S.dominance.side==='you'?'🏆 Район под тобой':'🏳 Банда забрала район'):(stars?'🏴 Район твой':'🚩 Район остался за бандой')}</h2>
@@ -3114,6 +3232,17 @@ function botTurn(){
   if(t.type==='wh')botStock();
   botUpgrade();
   botGuards('you');
+  botMissions();
+}
+// бот ведёт себя как игрок: забирает награды миссий и тратит семки на уровни, начиная с дешёвых
+function botMissions(){
+  msClaimAll();
+  let g=0;
+  while(g++<50){
+    const p=S.pat.slice().sort((a,b)=>seedCost(a.lvl)-seedCost(b.lvl))[0];
+    if(!p||(S.seeds||0)<seedCost(p.lvl))break;
+    if(!levelUp(p))break;
+  }
 }
 async function batch(n){
   const res=[], wasSpeed=CFG.SPEED; CFG.SPEED=100;
@@ -3137,7 +3266,10 @@ async function batch(n){
      income:{продажи:D0('sales'),кулак:D0('kulak'),шанс:D0('luck'),миниигры:D0('mini'),
              рентаПолучено:D0('rentIn'),рентаОтдано:D0('rentOut')},
      tiles:{купилЯ:D0('buyMe'),купилаБанда:D0('buyBand'),отжалЯ:D0('grabMe'),
-            отжалаБанда:D0('grabBand'),потерялБезОхраны:D0('lostFree')}};
+            отжалаБанда:D0('grabBand'),потерялБезОхраны:D0('lostFree')},
+     missions:{ступенейВзято:avg0(r=>r.msTaken||0), семокПотрачено:avg0(r=>r.seedSpent||0),
+               уровнейКуплено:avg0(r=>r.lvlBought||0), семокОсталось:avg0(r=>r.seeds||0)},
+     guardAt:CFG.GUARD_AT.join('/')};
    histPush(botRow);
    getDb().then(db=>{ if(db) db.doc(`runs/${botRow.runId}`).set(botRow).catch(()=>{}); });}
   newGame(); S.tips.intro=true;
@@ -3387,15 +3519,22 @@ function draw(){
   if(camMoving||anyReveal||anyEmpty)kick();else if(reveal&&Date.now()-reveal.t0>5000)reveal=null;
 }
 function render(){
-  $('sDay').textContent=`${Math.min(S.runLap||1,runLaps())}/${runLaps()}`;$('tJ').textContent='ур. '+level();$('sRolls').textContent=S.rolls+'/'+CFG.ROLLS_PER_DAY;$('sCash').textContent=S.cash;$('sCash').classList.toggle('neg',S.cash<0);$('sHard').textContent=S.hard;
+  $('sDay').textContent=`${Math.min(S.runLap||1,runLaps())}/${runLaps()}`;$('tJ').textContent='ур. '+level();$('sRolls').textContent=S.rolls+'/'+CFG.ROLLS_PER_DAY;$('sCash').textContent=S.cash;$('sCash').classList.toggle('neg',S.cash<0);$('sHard').textContent=S.hard;$('sSeeds').textContent=S.seeds||0;
   const taxiOn=true, shopOn=S.stat.parcels>0||S.day>1||S.rolls<=0, canShip=(!S.parcelSent||parcelsBehind()>0)&&myKiosks().reduce((a,t)=>a+t.goods,0)>0;
   $('tTaxi').textContent=taxiOn?'$ '+taxiPrice():'позже';
   const ev=[];if(S.trend)ev.push(`🔥 ${good(S.trend).name} ×${CFG.TREND_MULT}`);if(S.day===CFG.BLACK_FRIDAY_DAY)ev.push('🛍×'+CFG.BF_MULT);if((S.loans||[]).length)ev.push('🏦 −$'+loanInterest()+'/круг');
   if(S.jail>0)ev.push(`🚔 ${S.jail} попытки`);
   $('sEvent').hidden=true;$('sEvent').textContent=ev.join(' · ');
   {const tm=(()=>{if(!CFG.REAL_DAYS)return `👊 Кулак ур. ${S.kulak?S.kulak.lvl:1} · ${S.kulak?Math.round(S.kulak.hp/S.kulak.max*100):100}%`;const now=new Date(),mid=new Date(now);mid.setHours(24,0,0,0);const h=Math.floor((mid-now)/36e5),m=Math.floor(((mid-now)%36e5)/6e4);return `⏱ ${h}ч ${String(m).padStart(2,'0')}м`;})();$('sTimer').querySelector('span').textContent=ev.length?ev[0]:tm;$('sTimer').title=ev.join(' · ');}
-  const ready=(S.q?S.q.some(x=>x.done&&!x.claimed):false)||bpClaimable()>0;
-  if(S.q){S.q.forEach((q,i)=>{const el=$('q'+i);if(!el)return;el.hidden=!!q.claimed;const done=q.done&&!q.claimed;el.className='qchip'+(done?' done blink':'');el.querySelector('span').textContent=q.claimed?'✓ '+q.text:done?'🎁 Забрать: '+rwText(q.reward):q.text;el.querySelector('i').style.width=(q.claimed?100:Math.min(100,q.prog/q.goal*100))+'%';});}
+  const ready=msReadyN()>0||bpClaimable()>0;
+  {const ch=msChips();                                   // полоска показывает две миссии: готовые к сдаче впереди
+   [0,1].forEach(k=>{const el=$('q'+k), x=ch[k]; if(!el)return;
+     if(!x){el.hidden=true;el.dataset.ms='';return;}
+     const m=x.m, d=msDef(m.id), ready=msReady(m)>0, goal=msGoal(m);
+     el.hidden=false; el.dataset.ms=x.i;
+     el.className='qchip'+(ready?' done blink':'');
+     el.querySelector('span').textContent=ready?`🎁 ${d.ic} Забрать`:`${d.ic} ${d.sh} ${shortN(Math.min(m.prog,goal))}/${shortN(goal)}`;
+     el.querySelector('i').style.width=Math.round(msRatio(m)*100)+'%';});}
   $('bTaxi').classList.toggle('blink',taxiOn&&!moving&&myKiosks().length>0&&myKiosks().reduce((a,t)=>a+t.goods,0)===0&&S.hard>=taxiPrice()&&S.rolls>0);
   $('bShop').innerHTML=`<span>🛒${S.tips.shopOpened||!shopOn?'':'<i class="dot"></i>'}</span><small>${shopOn?'Магазин':'позже'}</small>`;$('bShip').className='dk'+(freeBodies(S).length?' ok':'');
   {const cy=capitalOf('you'), cb=capitalOf('band'), tot=cy+cb||1, p=Math.round(cy/tot*100);
@@ -3467,7 +3606,10 @@ cv.addEventListener('click',e=>{
   if(t.owner){t.type==='biz'?bizWindow(t):kioskWindow(t);}
   else toast(`${t.type==='biz'?'🏢 '+bizName(t):pointName(t)+' · '+good(t.good).icon+' '+good(t.good).name} · ₽${t.price} — купить можно, остановившись на клетке.`);
 });
-$('tip').onclick=hideTip;$('modal').addEventListener('click',e=>{if(e.target===$('modal')&&!modalSticky)closeModal();});$('toast').onclick=()=>{clearTimeout(toastT);$('toast').style.opacity=0;$('toast').style.pointerEvents='none';};$('bHub').onclick=()=>{if(!moving)eventHub();};$('sTimer').onclick=()=>{if(!moving)eventInfo();};[0,1].forEach(i=>{$('q'+i).onclick=()=>{if(moving)return;const q=S.q[i];if(q&&q.done&&!q.claimed){const r=q.reward;if(r.rolls){fly('🎲',AT.el('q'+i),AT.dice(),3);S.rolls+=r.rolls;}if(r.cash){fly('💵',AT.el('q'+i),AT.cash(),flyN(r.cash),{pulse:'sCash'});S.cash+=r.cash;}q.claimed=true;track('quest_claim',{id:q.id,goal:q.goal,reward:r});toast('🎯 Награда получена');save();render();}else if(q)toast(`🎯 ${q.text} · ${Math.min(q.prog,q.goal)}/${q.goal} · ${rwText(q.reward)}`);};});
+$('tip').onclick=hideTip;$('modal').addEventListener('click',e=>{if(e.target===$('modal')&&!modalSticky)closeModal();});$('toast').onclick=()=>{clearTimeout(toastT);$('toast').style.opacity=0;$('toast').style.pointerEvents='none';};$('bHub').onclick=()=>{if(!moving)eventHub();};$('sTimer').onclick=()=>{if(!moving)eventInfo();};[0,1].forEach(k=>{$('q'+k).onclick=async()=>{if(moving)return;
+  const i=+($('q'+k).dataset.ms), m=S.ms&&S.ms[i];
+  if(m&&msReady(m)>0){msClaim(i,AT.el('q'+k));draw();return;}
+  await missionList();};});
 $('bJohnnyTop').onclick=()=>{if(!moving)runWindow();};$('bJohnny').onclick=()=>{if(!moving)runWindow();};$('bHub').onclick=()=>{if(!moving)runWindow();}; /* аватар и кнопка дока открывают ивентовое окно; карточка Джонни — из него */ $('bShip').onclick=()=>{if(!moving)squadWindow();};$('tilebar').onclick=()=>{if(moving)return;const t=S.tiles[S.pos];if(t.type==='kiosk')kioskWindow(t);else if(t.type==='biz')bizWindow(t);else if(t.type==='wh')shop();else if(t.type==='bank')bank();};$('bShop').onclick=()=>{if(!moving){S.tips.shopOpened=true;shopHard();}};
 // сторож: если ход завис — ни анимации, ни открытого окна, а кубик заблокирован, —
 // отпускаем управление. Прототип не должен запираться из-за одной непойманной ошибки
