@@ -115,6 +115,7 @@ button.hard{background:#3e5a8a;box-shadow:0 3px 0 #2c4470}
 .segbar{display:flex;gap:4px;background:#2b2723;border-radius:14px;padding:4px;margin-top:10px;position:sticky;bottom:0}
 .segbar button{flex:1;background:transparent;color:var(--cream);box-shadow:none;border-radius:11px;padding:10px 6px;font-size:15px;font-weight:600;position:relative}.segbar button.on{background:var(--cream);color:var(--ink)}.segbar .dot{position:absolute;top:6px;right:8px}
 .xhead{position:absolute;top:10px;right:10px;width:32px;height:32px;border-radius:50%;background:#0002;color:var(--ink);box-shadow:none;padding:0;font-size:15px;z-index:2}.lbhead .xhead{background:#ffffff22;color:var(--cream)}.lbhead .lbt{padding-right:40px}
+.card h2.one{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:19px}
 .card h2{padding-right:40px}
 .msbar{position:relative;height:12px;background:var(--cream2);border-radius:6px;margin:22px 0 30px}.msbar i{position:absolute;left:0;top:0;bottom:0;background:var(--green);border-radius:6px;transition:width .4s}
 .msbar .tick{position:absolute;top:-4px;transform:translateX(-50%);text-align:center}.msbar .tick b{display:block;width:4px;height:20px;background:#0004;border-radius:2px;margin:0 auto}.msbar .tick.done b{background:#2d6b38}.msbar .tick small{display:block;font-size:11px;font-weight:700;color:#6b5f52;margin-top:2px}
@@ -225,7 +226,7 @@ button.sm{padding:7px 10px;font-size:13px;border-radius:9px;white-space:nowrap}
 .pgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;overflow:auto;margin:6px 0;padding:2px;
   flex:1 1 auto;min-height:110px}
 /* окно с картотекой — колонка: заголовок и кнопки прижаты, скроллится только сетка */
-#modal .card:has(.pgrid){display:flex;flex-direction:column;max-height:calc(100dvh - 20px)}
+#modal .card:has(.pgrid){display:flex;flex-direction:column;max-height:min(calc(100dvh - 20px),560px)}
 #modal .card:has(.pgrid) .mbtns{flex:0 0 auto;margin-top:6px}
 #modal .card:has(.pgrid) h2{flex:0 0 auto}
 .pcard{position:relative;display:flex;flex-direction:column;gap:0;padding:0;border-radius:10px;overflow:hidden;
@@ -247,12 +248,15 @@ button.sm{padding:7px 10px;font-size:13px;border-radius:9px;white-space:nowrap}
 .pcard.busy{opacity:.6}
 .pcard.hurt{opacity:.45;cursor:default}
 .pcard.r2{background:#cfd6e8}.pcard.r3{background:#e8d9b0}
-.psort{display:flex;align-items:center;gap:10px;margin:8px 0 4px;font-size:12px;color:var(--mut);flex-wrap:wrap}
-.psort button{padding:3px 2px;border-radius:0;background:none;color:var(--mut);font-size:14px;font-weight:800;box-shadow:none}
+.psort{display:flex;align-items:center;gap:8px;margin:5px 0 2px;font-size:11px;color:var(--mut);flex-wrap:nowrap;overflow-x:auto}
+.psort button{padding:2px 1px;border-radius:0;background:none;color:var(--mut);font-size:13px;font-weight:800;box-shadow:none;white-space:nowrap}
 .psort button.on{color:var(--green);border-bottom:2px solid var(--green)}
-.psort.pick button{background:var(--cream2);color:var(--ink);border-radius:8px;padding:4px 10px;font-size:12px;border-bottom:0}
-.pgrid{max-height:min(52vh,420px)}
-.pstats{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:2px 0 6px}
+.psort.pick button{background:var(--cream2);color:var(--ink);border-radius:7px;padding:3px 8px;font-size:11px;border-bottom:0;white-space:nowrap}
+.pgrid{max-height:min(46vh,308px)}
+/* внутри артефакта окно живёт в длинном iframe, и проценты высоты врут:
+   держим сетку жёстким пределом, чтобы кнопки всегда оставались на экране */
+@supports not (height:1dvh){.pgrid{max-height:308px}}
+.pstats{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--mut);margin:1px 0 4px}
 .pstats b{color:var(--ink);font-size:14px}
 .pstats .ok b{color:var(--green)} .pstats .bad b{color:var(--red)}
 .grd{cursor:pointer}
@@ -1416,7 +1420,7 @@ async function guardPicker(t){
     const order=patOrder(p=>p.where===t.i?'sel':p.hurt?'hurt':p.where!=null?'busy':'free');
     const cards=order.map(o=>pCard(o.p,o.state,o.i)).join('');
     $('modal').classList.add('mid'); $('card').className='card';
-    $('card').innerHTML=`<h2>🛡 Охрана · ${name(t)}</h2>
+    $('card').innerHTML=`<h2 class="one">🛡 Охрана · ${t.type==='biz'?bizName(t):pointName(t)}</h2>
       <div class="row"><span class="n">Слотов ${g.length}/${mx}<small>слоты открываются с уровнем точки</small></span>
         <span class="v">оборона ${defPower(t)}${help?` <small style="color:var(--green)">+${help} соседи</small>`:''}</span></div>
       ${sortTabs()}
