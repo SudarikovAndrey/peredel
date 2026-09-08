@@ -919,9 +919,9 @@ const CFG = {
   RENT_MULT: 2,             // множитель ренты (модификатор «Жадный район» поднимает до 3)
   RENT_OF_TURNOVER: 0.75,   // какую долю круговой выручки точки платит гость
   GUARD_MAX: 5,             // потолок тел на точку
-  GUARD_AT: [0,1,3,7,11],   // сколько прокачек нужно на 1-й…5-й слот охраны: ранняя тройка открывается быстро,
-                            // чтобы точка не стояла с одним бойцом. Было «каждый третий уровень» — и право
-                            // на второго охранника стоило дороже самой точки (16 371 ₽ против 12 459 ₽)
+  GUARD_AT: [1,1,3,6,8],    // с какого уровня точки открыт 1-й…5-й слот охраны. Уровень = сумма прокачек,
+                            // считается с единицы, поэтому на только что купленной точке слотов сразу два:
+                            // тела должны упираться в количество, а не в право их поставить
   NEIGHBOR_HELP: 0.5,       // соседняя своя клетка присылает половину силы своей охраны
   MONOPOLY: [1, 1.2, 1.45, 1.8],  // множитель выручки за 1, 2, 3 и все 4 точки одной категории
   RAID_MAX: 5,              // тел в наезде
@@ -1296,18 +1296,18 @@ function makeBand(mine){const ns=NAMES.slice().sort(()=>Math.random()-0.5);
 const freeBodies=side=>side.pat.filter(p=>!p.where&&!p.hurt);
 const powerOf=list=>list.reduce((a,p)=>a+p.power,0);
 const guardPower=t=>powerOf(t.guards||[]);
-// слотов охраны тем больше, чем больше прокачек в точке — лестница в CFG.GUARD_AT
+// слотов охраны тем больше, чем выше уровень точки — лестница в CFG.GUARD_AT
 // бизнес силой не берут, поэтому и охранять его нечем
-const upgN=t=>Math.max(0,klevel(t)-1);          // сколько прокачек сделано: klevel считает с единицы
 function guardMax(t){ if(t.type==='biz')return 0;
-  const u=upgN(t); let n=1;
-  for(let k=1;k<CFG.GUARD_AT.length;k++) if(u>=CFG.GUARD_AT[k]) n=k+1;
+  const lv=klevel(t); let n=1;
+  for(let k=1;k<CFG.GUARD_AT.length;k++) if(lv>=CFG.GUARD_AT[k]) n=k+1;
   return Math.min(CFG.GUARD_MAX,n); }
 // сколько прокачек до следующего слота — показываем на плашке, чтобы связь была видна
+// (каждая прокачка поднимает уровень точки ровно на единицу)
 function guardNext(t){ if(t.type==='biz')return null;
-  const u=upgN(t), mx=guardMax(t);
+  const lv=klevel(t), mx=guardMax(t);
   if(mx>=CFG.GUARD_MAX)return null;
-  return {slot:mx+1, need:CFG.GUARD_AT[mx]-u}; }
+  return {slot:mx+1, need:CFG.GUARD_AT[mx]-lv}; }
 // вложено в объект: покупка плюс все прокачки — от этой суммы считается перекуп
 const invested=t=>t.invested||t.price;
 const buyoutPrice=t=>Math.round(invested(t)*CFG.BUYOUT_MARKUP/10)*10;
