@@ -244,7 +244,13 @@ button.sm{padding:7px 10px;font-size:13px;border-radius:9px;white-space:nowrap}
 .pcard .pfoot b em{font-style:normal;font-size:10px}
 .pcard .prank{font-style:normal;font-size:10px;color:#c9432f;letter-spacing:-1px}
 .pcard .pnm{font-size:11px;font-weight:700;line-height:1.2;padding:2px 3px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pcard.sel{border-color:var(--green)}
+.pcard.sel{border-color:#2fbf5a;background:#d7f3dd;box-shadow:0 0 0 3px #2fbf5a66,0 3px 10px #2fbf5a55}
+.pcard.sel .pfoot{background:#c3ecccee}
+.pcard.sel .pnm{background:#2fbf5a;color:#fff}
+.pcard.sel .pchk{width:24px;height:24px;font-size:15px;background:#2fbf5a;border:2px solid #fff}
+/* в окнах выбора невыбранные приглушены — разница должна читаться с одного взгляда */
+.pgrid.pick .pcard:not(.sel){opacity:.62;filter:saturate(.7)}
+.pgrid.pick .pcard:not(.sel):active{opacity:.9}
 .pcard.busy{opacity:.6}
 .pcard.hurt{opacity:.45;cursor:default}
 .pcard.r2{background:#cfd6e8}.pcard.r3{background:#e8d9b0}
@@ -1425,7 +1431,7 @@ async function guardPicker(t){
         <span class="v">оборона ${defPower(t)}${help?` <small style="color:var(--green)">+${help} соседи</small>`:''}</span></div>
       ${sortTabs()}
       ${pickBar('снять охрану')}
-      <div class="pgrid">${cards}</div>
+      <div class="pgrid pick">${cards}</div>
       <div class="mbtns"><button class="ok" id="pOkG">Готово</button></div>`;
     $('card').querySelectorAll('.pcard').forEach(b=>b.onclick=()=>{
       const p=S.pat[+b.dataset.p];
@@ -2235,7 +2241,7 @@ async function hospital(){
       <div class="pstats"><span class="bad">Павших <b>${fallen.length}</b></span><span class="ok">Поднимем <b>${pick.length}/${CFG.HOSPITAL_HEAL}</b></span></div>
       ${sortTabs()}
       ${pickBar('снять выбор')}
-      <div class="pgrid">${list.map(o=>pCard(o.p,pick.includes(o.p)?'sel':'free',o.i)).join('')}</div>
+      <div class="pgrid pick">${list.map(o=>pCard(o.p,pick.includes(o.p)?'sel':'free',o.i)).join('')}</div>
       <div class="mbtns"><button class="ok" id="hOk" ${pick.length?'':'disabled'}>Поднять ${pick.length}</button></div>`;
     bindSort(paint);
     $('card').querySelectorAll('.pcard').forEach(b=>b.onclick=()=>{
@@ -2373,7 +2379,7 @@ async function kulak(){
         <span class="v">куш ₽${take}</span></div>
       ${sortTabs()}
       ${pickBar()}
-      <div class="pgrid">${order.map(o=>pCard(o.p,o.state,o.i)).join('')}</div>
+      <div class="pgrid pick">${order.map(o=>pCard(o.p,o.state,o.i)).join('')}</div>
       <div class="mbtns"><button class="red" id="kHit" ${squad.length?'':'disabled'}>👊 Бить</button></div>`;
     $('card').querySelectorAll('.pcard').forEach(b=>b.onclick=()=>{
       const p=S.pat[+b.dataset.p];
