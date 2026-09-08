@@ -1749,10 +1749,7 @@ async function flush(final){
     if(pending.length){const chunk=pending.splice(0,pending.length);S.chunkN=(S.chunkN||0)+1;
       await db.doc(`runs/${S.runId}/chunks/c${String(S.chunkN).padStart(4,'0')}`).set({events:chunk,n:chunk.length,day:S.day,at:Date.now()});
       try{localStorage.setItem(LOGK,'[]');}catch(e){}}
-    const ks=myKiosks();
-    await db.doc(`runs/${S.runId}`).set({runId:S.runId,player:S.player||null,version:VERSION,cfg:cfgHash(),startVersion:S.startVersion||null,startCfg:S.startCfg||null,startedAt:S.startedAt,updatedAt:Date.now(),day:S.day,laps:S.laps,pts:S.pts,cash:S.cash,hard:S.hard,level:level(),
-      playMin:Math.round((S.playMs||0)/60000*10)/10,dayMin:Object.fromEntries(Object.entries(S.dayMs||{}).map(([d,ms])=>[d,Math.round(ms/60000*10)/10])),sessions:S.sessions||1,
-      points:ks.length,biz:S.tiles.filter(t=>t.type==='biz'&&t.owner).length,tiers:ks.map(t=>t.tier).join(''),opened:S.opened,stat:S.stat,finished:!!S.finished,ticket:S.pts>=CFG.TICKET_PTS,chunks:S.chunkN||0,ua:navigator.userAgent.slice(0,80)});
+    await db.doc(`runs/${S.runId}`).set(summaryDoc());
   }catch(e){ /* база недоступна — события остаются в очереди */ }
 }
 function touch(){const now=Date.now();if(S&&lastAct&&now-lastAct<60000){S.playMs=(S.playMs||0)+(now-lastAct);S.dayMs=S.dayMs||{};S.dayMs[S.day]=(S.dayMs[S.day]||0)+(now-lastAct);}lastAct=now;}
@@ -3019,7 +3016,7 @@ async function finishRun(){
   S.stars=stars;
   track('run_end',{stars,cy,cb,my,th,mods:S.mods,raids:S.pstat.raids,won:S.pstat.won,hurt:S.pstat.hurt,rent:S.pstat.rent,laps:S.laps});
   if(S.diag){myTiles().forEach(t=>S.diag.defMe.push(defPower(t)));bandTiles().forEach(t=>S.diag.defBand.push(defPower(t)));}
-  if(!S.fast)histPush(summaryDoc());
+  if(!S.fast){histPush(summaryDoc()); flush(true);}
   S.result={stars,cy,cb,my,th,diag:S.diag,kulakBest:S.kulakBest||0,mods:S.mods.slice(),raids:S.pstat.raids,won:S.pstat.won,hurt:S.pstat.hurt,rent:S.pstat.rent,seeds:S.seeds||0,laps:S.laps,kulak:S.kulak?S.kulak.lvl:1};
   if(S.fast)return;
   save();render();
@@ -3112,7 +3109,7 @@ async function batch(n){
   {const avg0=f=>Math.round(res.reduce((a,r)=>a+f(r),0)/(res.length||1));
    const st0=[0,0,0,0]; res.forEach(r=>st0[r.stars]++);
    const D0=k=>avg0(r=>(r.diag&&r.diag[k])||0);
-   histPush({runId:'bot-'+Date.now().toString(36), kind:'bot', version:VERSION, cfg:cfgHash(),
+   const botRow={runId:'bot-'+Date.now().toString(36), kind:'bot', version:VERSION, cfg:cfgHash(),
      updatedAt:Date.now(), games:res.length, laps:CFG.RUN_LAPS, startCash:CFG.START_CASH,
      stars:st0, capYou:avg0(r=>r.cy), capBand:avg0(r=>r.cb),
      tilesYou:avg0(r=>r.my), tilesBand:avg0(r=>r.th),
@@ -3121,7 +3118,9 @@ async function batch(n){
      income:{продажи:D0('sales'),кулак:D0('kulak'),шанс:D0('luck'),миниигры:D0('mini'),
              рентаПолучено:D0('rentIn'),рентаОтдано:D0('rentOut')},
      tiles:{купилЯ:D0('buyMe'),купилаБанда:D0('buyBand'),отжалЯ:D0('grabMe'),
-            отжалаБанда:D0('grabBand'),потерялБезОхраны:D0('lostFree')}});}
+            отжалаБанда:D0('grabBand'),потерялБезОхраны:D0('lostFree')}};
+   histPush(botRow);
+   getDb().then(db=>{ if(db) db.doc(`runs/${botRow.runId}`).set(botRow).catch(()=>{}); });}
   newGame(); S.tips.intro=true;
   const st=[0,0,0,0]; res.forEach(r=>st[r.stars]++);
   const avg=f=>Math.round(res.reduce((a,r)=>a+f(r),0)/res.length);
@@ -3181,7 +3180,7 @@ function settings(){
     <div class="row"><span class="n">Новая игра с дня<small>опоздавший: стартовый пакет и догоняющая фура</small></span><input type="number" id="iStart" value="1" min="1" max="${CFG.DAYS}"></div>
     <div class="mbtns"><button class="sec" id="cCash">+$500</button><button class="sec" id="cRolls">+10 ходов</button><button class="sec" id="cHard">+$ 50</button></div>
     <div class="row"><span class="n">📊 Накопленные метрики<small>партии и прогоны между сессиями</small></span><div class="qty"><button id="cMetrics">Смотреть</button></div></div>
-    <div class="row"><span class="n">📤 Лог партии для разбора<small>${S.player||'без имени'} · ${(window.claude&&claude.use)?'уходит в базу сам':'поделись файлом или вставь из буфера'}</small></span><div class="qty"><button id="cExport">Экспорт</button></div></div>
+    <div class="row"><span class="n">📤 Лог партии для разбора<small>${S.player||'без имени'} · ${(window.claude&&claude.use)?'уходит в общую базу артефакта':'копится локально — жми «Скопировать всё»'}</small></span><div class="qty"><button id="cExport">Экспорт</button></div></div>
     <div class="mbtns"><button class="bad" id="cReset">Новая игра</button><button id="cClose">Закрыть</button></div>
     <p style="font-size:12px">Прототип «Америкэн бой» v${VERSION} · баланс ${cfgHash()}. Баланс — объект CFG в начале скрипта. Сохраняется в браузере.</p>`;
   $('modal').hidden=false;
