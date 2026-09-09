@@ -1670,8 +1670,15 @@ function sortTabs(){
 }
 function pickBar(clearLabel){
   return `<div class="psort pick"><span>Взять</span>
-    <button data-pick="top">сильнейших</button><button data-pick="low">слабейших</button>
+    <button data-pick="top">сильнейших</button><button data-pick="mid">средних</button><button data-pick="low">слабейших</button>
     <button data-pick="clear">${clearLabel||'снять всех'}</button></div>`;
+}
+// выбрать n бойцов из списка: сверху, снизу или из середины по силе
+function pickBy(list,mode,n){
+  const a=list.slice().sort((x,y)=>y.power-x.power);
+  if(mode==='low')return a.slice(-n).reverse();
+  if(mode==='mid'){const start=Math.max(0,Math.floor((a.length-n)/2));return a.slice(start,start+n);}
+  return a.slice(0,n);
 }
 function bindSort(paint){ $('card').querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{S.patSort=b.dataset.sort;save();paint();}); }
 
@@ -1702,10 +1709,11 @@ async function guardPicker(t){
     bindSort(paint);
     $('card').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{
       const mode=b.dataset.pick;
-      if(mode==='clear'){ (t.guards||[]).slice().forEach(p=>{p.where=null;}); t.guards=[]; }
-      else{
-        const free=freeBodies(S).sort((a,b2)=>mode==='top'?b2.power-a.power:a.power-b2.power);
-        for(const p of free){ if((t.guards||[]).length>=mx)break; t.guards=t.guards||[]; p.where=t.i; t.guards.push(p); }
+      // снимаем текущих и набираем заново из общего котла: иначе при занятых слотах
+      // кнопка не делала ничего — дозаполнять было нечего
+      (t.guards||[]).slice().forEach(p=>{p.where=null;}); t.guards=[];
+      if(mode!=='clear'){
+        for(const p of pickBy(freeBodies(S),mode,mx)){ t.guards.push(p); p.where=t.i; }
       }
       save(); render(); draw(); paint();
     });
@@ -2526,7 +2534,7 @@ async function hospital(){
     });
     $('card').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{
       const m=b.dataset.pick;
-      pick = m==='clear' ? [] : fallen.slice().sort((a,b2)=>m==='top'?b2.power-a.power:a.power-b2.power).slice(0,CFG.HOSPITAL_HEAL);
+      pick = m==='clear' ? [] : pickBy(fallen,m,CFG.HOSPITAL_HEAL);
       paint();
     });
     $('hOk').onclick=()=>{
@@ -2664,10 +2672,8 @@ async function kulak(){
     });
     bindSort(paint);
     $('card').querySelectorAll('[data-pick]').forEach(b=>b.onclick=()=>{
-      const f=freeBodies(S);
-      if(b.dataset.pick==='top')squad=f.slice().sort((a,b2)=>b2.power-a.power).slice(0,CFG.RAID_MAX);
-      else if(b.dataset.pick==='low')squad=f.slice().sort((a,b2)=>a.power-b2.power).slice(0,CFG.RAID_MAX);
-      else squad=[];
+      const m=b.dataset.pick;
+      squad = m==='clear' ? [] : pickBy(freeBodies(S),m,CFG.RAID_MAX);
       paint();
     });
     $('kHit').onclick=async()=>{
@@ -3206,7 +3212,9 @@ async function finishWeekOld(){
   const countUp=(el,to,ms)=>new Promise(res=>{if(ms<=0){el.textContent=to;return res();}const t0=Date.now();const f=()=>{const p=Math.min(1,(Date.now()-t0)/ms);el.textContent=Math.round(to*(1-Math.pow(1-p,3)));if(p<1)setTimeout(f,16);else res();};f();});
   (async()=>{let run=0;for(const r of rowsEl){r.style.transition='opacity .25s';r.style.opacity=1;const v=+r.querySelector('.v').dataset.v;await countUp(r.querySelector('.v'),v,CFG.SPEED>=100?0:500);run+=v;$('finTot').textContent=run;await wait(150);}
     if(ticket){const h=$('card').querySelector('.finhero');if(h)h.classList.add('go');}})();
-  await new Promise(res=>{modalResolve=res;modalSticky=true;$('modal').hidden=false;$('finOk').onclick=()=>closeModal(1);});
+  await new Promise(res=>{modalResolve=res;modalSticky=true;
+    $('modal').classList.remove('closing');$('modal').hidden=false;
+    $('finOk').onclick=()=>closeModal(1);});
   modalSticky=false; newGame();
 }
 
@@ -3491,7 +3499,11 @@ function settings(){
     <div class="row"><span class="n">📊 Накопленные метрики<small>партии и прогоны между сессиями</small></span><div class="qty"><button id="cMetrics">Смотреть</button></div></div>
     <div class="row"><span class="n">📤 Лог партии для разбора<small>${S.player||'без имени'} · ${(window.claude&&claude.use)?'уходит в общую базу артефакта':'копится локально — жми «Скопировать всё»'}</small></span><div class="qty"><button id="cExport">Экспорт</button></div></div>
     <div class="mbtns"><button class="bad" id="cReset">Новая игра</button><button id="cClose">Закрыть</button></div>
-    <p style="font-size:12px">Прототип «Америкэн бой» v${VERSION} · баланс ${cfgHash()}. Баланс — объект CFG в начале скрипта. Сохраняется в браузере.</p>`;
+    <p style="font-size:12px">Прототип «Передел» v${VERSION} · баланс ${cfgHash()}. Баланс — объект CFG в начале скрипта. Сохраняется в браузере.</p>`;
+  // окно показываем напрямую, поэтому класс карточки сбрасываем сами:
+  // после карточки точки на ней остаётся «bare» — прозрачный фон без плашки
+  $('modal').classList.remove('closing');$('modal').classList.remove('mid');
+  $('card').className='card';$('card').style.removeProperty('--cs');
   $('modal').hidden=false;
   $('card').querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{CFG.SPEED=+b.dataset.s;toast('Скорость ×'+CFG.SPEED);});
   $('card').querySelectorAll('[data-ts]').forEach(b=>b.onclick=()=>{CFG.TIME_SCALE=+b.dataset.ts;toast('Время ×'+CFG.TIME_SCALE);});
