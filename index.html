@@ -2812,8 +2812,8 @@ async function kioskWindow(t){
             return m>1?`<br><small style="color:#3f8f4c">${n} точки категории · ×${m}</small>`
                       :`<br><small style="color:#6b5f52">одна точка категории · вторая даст ×${CFG.MONOPOLY[1]}</small>`;})()}</span><b>₽${Math.round(sales(t)*margin*monoMult('you',t.good))}</b></div>
         <div class="two">
-          <div class="up">${helpBtn('Вместимость — сколько товара влезает в точку между визитами на складе.')}<div class="uic">▦</div><div class="lab">Вместимость</div><div class="nums">${cap(t)}${cMax?'':` <i>→</i> <b>${capNext(t)}</b>`}</div><button id="kCap" ${cMax||S.cash<capCost(t)?'disabled':''}>${cMax?'Макс':'₽'+capCost(t)}</button></div>
-          <div class="up">${helpBtn('Оборот — сколько штук продаётся за круг при проходе старта.')}<div class="uic">⟳</div><div class="lab">Оборот</div><div class="nums">${sales(t)}${sMax?'':` <i>→</i> <b>${salesNext(t)}</b>`}</div><button id="kSal" ${sMax||S.cash<salesCost(t)?'disabled':''}>${sMax?'Макс':'₽'+salesCost(t)}</button></div>
+          <div class="up">${helpBtn('Вместимость — сколько товара влезает в точку между визитами на складе.')}<div class="uic">▦</div><div class="lab">Вместимость</div><div class="nums">${cap(t)}${cMax?'':` <i>→</i> <b>${capNext(t)}</b>`}</div><button id="kCap" ${cMax||S.cash<capCost(t)?'disabled':''}>${cMax?'Макс':S.cash<capCost(t)?'мало ₽':'₽'+capCost(t)}</button></div>
+          <div class="up">${helpBtn('Оборот — сколько штук продаётся за круг при проходе старта.')}<div class="uic">⟳</div><div class="lab">Оборот</div><div class="nums">${sales(t)}${sMax?'':` <i>→</i> <b>${salesNext(t)}</b>`}</div><button id="kSal" ${sMax||S.cash<salesCost(t)?'disabled':''}>${sMax?'Макс':S.cash<salesCost(t)?'мало ₽':'₽'+salesCost(t)}</button></div>
         </div>${t.type==='biz'?'':guardRow(t)}${evoRow}`);
       if(t.type!=='biz')bindGuard(t,draw);
       const evo=$('kEvo'); if(evo)evo.onclick=()=>{fly('💵',AT.cash(),AT.tile(t.i),8);evolve(t);render();draw();};
@@ -2835,14 +2835,22 @@ async function bizWindow(t){
       $('bBuy').onclick=()=>{track('buy_biz',{tile:t.i,price:t.price});fly('💵',AT.cash(),AT.tile(t.i),flyN(t.price));S.cash-=t.price;t.owner='you';t.level=1;unstash('you');S.stat.bought++;S.dstat.bought++;qProg('buy',1);log(`Купил ${name(t)} за ₽${t.price}.`);toast('Твой бизнес. Без охраны его заберут даром.');render();draw();};
     } else {
       const max=t.level>=(t.cfg?t.cfg.upg:21), lockDay=bizLevelLocked(t), cost=bizUpCost(t), es=evolveState(t), nt=evolveTarget(t);
-      const evoCard=es==='max'?'':`<div class="up">${helpBtn('Расширение: здание дорожает в 5 раз, сбор — тоже, уровень сохраняется. Цена — прибавка сбора × окупаемость в проходах (12 в начале недели, к концу короче).')}<div class="uic">🏙</div><div class="lab">${CFG.TIER_NAMES.biz[nt-1]}</div><div class="nums">${es==='ok'?`<b>×${Math.round(evolvedPrice(t)/t.price)} сбор</b><small class="pb">окупится за ${paybackLaps()} проходов</small>`:es==='stats'?'с ур. '+(t.cfg?t.cfg.upg:21):'с дня '+es.split(':')[1]}</div><button id="bEvo" ${es!=='ok'||S.cash<evolveCost(t)?'disabled':''}>₽${evolveCost(t)}</button></div>`;
+      // Расширения в Переделе нет: здания берутся из кора, а там у бизнеса только уровни.
+      // Блок рисуем, лишь когда расширение реально возможно, иначе на карточке висела
+      // мёртвая кнопка с ценой за недоступное действие и подписью «с дня undefined»
+      const evoLive=(es==='ok'||es==='stats'||String(es).startsWith('locked'));
+      const evoBtn=es==='ok'?`<button id="bEvo" ${S.cash<evolveCost(t)?'disabled':''}>${S.cash<evolveCost(t)?'мало ₽':'₽'+evolveCost(t)}</button>`
+        :es==='stats'?`<button disabled>ур. ${t.cfg?t.cfg.upg:21}</button>`
+        :`<button disabled>с дня ${String(es).split(':')[1]}</button>`;
+      const evoCard=!evoLive?'':`<div class="up">${helpBtn('Расширение: здание дорожает в 5 раз, сбор — тоже, уровень сохраняется. Цена — прибавка сбора × окупаемость в проходах.')}<div class="uic">🏙</div><div class="lab">${CFG.TIER_NAMES.biz[nt-1]}</div><div class="nums">${es==='ok'?`<b>×${Math.round(evolvedPrice(t)/t.price)} сбор</b><small class="pb">окупится за ${paybackLaps()} проходов</small>`:es==='stats'?`<b>ур. ${t.level}/${t.cfg?t.cfg.upg:21}</b><small class="pb">сначала прокачай сбор до максимума</small>`:`<small class="pb">откроется в день ${String(es).split(':')[1]}</small>`}</div>${evoBtn}</div>`;
       shopFrame(t,`<div class="srow"><span class="ico">${bizIcon(t)}</span><span class="nm">Бизнес</span><span class="lvl">${t.level}</span></div>
         <div class="box"><span>За проход</span><b>₽${fee(t)}</b></div>
         <div class="box"><span>За остановку <small style="color:#6b5f52">×${CFG.BIZ.landMult}</small></span><b>₽${fee(t)*CFG.BIZ.landMult}</b></div>
         <div class="two">
-          <div class="up">${helpBtn('Уровень поднимает сбор в 1,6 раза. Цена — прибавка сбора × '+paybackLaps()+' кругов; к концу недели окупаемость короче и прокачка дешевле.')}<div class="uic">⇧</div><div class="lab">Сбор за проход</div><div class="nums">₽${fee(t)}${max?'':` <i>→</i> <b>₽${Math.round(fee(t)*CFG.BIZ.feeLevelMult)}</b>`}${max||lockDay?'':`<small class="pb">окупится за ${paybackLaps()} проходов</small>`}</div><button id="bUp" ${max||lockDay||S.cash<cost?'disabled':''}>${max?'Макс':lockDay?'с дня '+lockDay:'₽'+cost}</button></div>
+          <div class="up">${helpBtn('Уровень поднимает сбор в 1,6 раза. Цена — прибавка сбора × '+paybackLaps()+' кругов; к концу недели окупаемость короче и прокачка дешевле.')}<div class="uic">⇧</div><div class="lab">Сбор за проход</div><div class="nums">₽${fee(t)}${max?'':` <i>→</i> <b>₽${Math.round(fee(t)*CFG.BIZ.feeLevelMult)}</b>`}${max||lockDay?'':`<small class="pb">окупится за ${paybackLaps()} проходов</small>`}</div><button id="bUp" ${max||lockDay||S.cash<cost?'disabled':''}>${max?`ур. ${t.level}/${t.cfg?t.cfg.upg:21}`:lockDay?'с дня '+lockDay:S.cash<cost?'мало ₽':'₽'+cost}</button></div>
           ${evoCard}
-        </div>`);
+        </div>
+        <p class="t" style="margin:6px 0 0">${max?`Сбор на максимуме: ур. ${t.level} из ${t.cfg?t.cfg.upg:21}, выше не поднять.`:S.cash<cost?`До следующего уровня не хватает ₽${cost-S.cash}.`:`Уровень ${t.level} из ${t.cfg?t.cfg.upg:21}. Каждый поднимает сбор в ${String(CFG.BIZ.feeLevelMult).replace('.',',')} раза.`}</p>`);
       $('bUp').onclick=()=>{track('upgrade',{tile:t.i,stat:'biz',lvl:t.level+1,cost});fly('💵',AT.cash(),AT.tile(t.i),flyN(cost));S.cash-=cost;t.level++;qProg('upg',1);log(`Прокачал ${name(t)} до ур. ${t.level}.`);render();draw();};
       const evo=$('bEvo'); if(evo)evo.onclick=()=>{fly('💵',AT.cash(),AT.tile(t.i),8);evolve(t);render();draw();};
     }
