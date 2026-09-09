@@ -2562,14 +2562,15 @@ async function hospital(){
 // Клетка ничья — её отрабатывает тот, кто приехал первым (у кого больше бросок).
 // Клетка чья-то — не до торговли: стрелка, стычка резервов, победитель снимает долю нала
 async function meeting(myRoll){
-  const t=S.tiles[S.pos], neutral=(t.type==='kiosk'||t.type==='biz')&&!t.owner;
-  if(neutral){
-    const youFirst=myRoll>=(S.bandRoll||0);
-    if(!S.fast)log(`Сошлись на ${name(t)}: ${youFirst?'ты приехал первым':'банда приехала первой'} — клетка её отрабатывает.`);
-    if(youFirst)await land(t); else await bandLand();
-    return;
-  }
-  return strelka();
+  const t=S.tiles[S.pos];
+  // Клетка с хозяином: разговор ведёт хозяин, гость платит ренту или наезжает.
+  // Стрелки тут нет — за точку и так есть свой разговор.
+  if(t.owner) return isMine(t) ? bandLand() : land(t);
+  // Ничья клетка: сошлись нос к носу — стрелка. Победитель её и отрабатывает,
+  // иначе свободная точка доставалась тому, у кого кубик больше, без боя
+  const win=await strelka();
+  if(!S.fast)log(`Клетку отрабатывает победитель стрелки: ${win?'ты':'банда'}.`);
+  return win ? land(t) : bandLand();
 }
 async function strelka(){
   const t=S.tiles[S.pos];
@@ -2583,7 +2584,7 @@ async function strelka(){
       await modal(`<h2>🤝 Стрелка</h2><p class="t">Сошлись, а бить некем — у обоих отряды в отключке. Постояли и разошлись.</p>`,
         [{t:'Разошлись',v:1,cls:'sec'}]);
     }
-    return;
+    return Math.random()<0.5;              // некому драться — клетка достаётся жребию
   }
   // драться нечем одной стороне — откуп, без лазарета: наказывать за пустой резерв дважды нельзя
   if(!att.length||!def.length){
@@ -2595,7 +2596,7 @@ async function strelka(){
       await modal(`<h2>🤝 Стрелка</h2><p class="t">${iAmEmpty?'Драться нечем — весь отряд в лазарете. Откупился.':'У них никого на подхвате. Взял без боя.'}</p>
         <div class="row"><span class="n">${iAmEmpty?'Отдал':'Взял'}</span><span class="v">₽${sum}</span></div>`,[{t:'Ясно',v:1,cls:'sec'}]);
     }
-    render();draw();return;
+    render();draw();return !iAmEmpty;      // у кого есть кем драться, тот и берёт клетку
   }
   if(!S.fast){
     await modal(`<h2>🤝 Стрелка</h2>
@@ -2619,6 +2620,7 @@ async function strelka(){
     if(!S.fast){log(`🤝 Стрелка проиграна: отдал ₽${sum}. Полегло ${мои.length}, у них ${их.length}.`);toast(`Отхватил · −${мои.length}`);}
   }
   render();draw();
+  return r.attWin;
 }
 
 // ---------- клетка «Кулак»: общий боец района ----------
