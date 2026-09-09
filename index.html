@@ -268,6 +268,16 @@ button.sm{padding:7px 10px;font-size:13px;border-radius:9px;white-space:nowrap}
 /* внутри артефакта окно живёт в длинном iframe, и проценты высоты врут:
    держим сетку жёстким пределом, чтобы кнопки всегда оставались на экране */
 @supports not (height:1dvh){.pgrid{max-height:308px}}
+/* В картотеке сжиматься имеет право только сетка: иначе заголовок, сортировка
+   и полоса выбора наезжают друг на друга, а карточки схлопываются в полоски.
+   Сетке задан пол по высоте строки — она просто скроллится. */
+#modal .card > *{flex-shrink:0}
+#modal .card > .pgrid{flex:1 1 auto;min-height:130px}
+.pgrid{grid-auto-rows:minmax(136px,auto);align-content:start}
+/* Внутри карточки не сжимаются подпись и строка с силой — иначе имя схлопывается
+   до нескольких пикселей, а сила уезжает под обрез. Аватар забирает остаток высоты. */
+.pcard > *{flex-shrink:0}
+.pcard .pav{flex:1 1 auto;min-height:52px}
 .pstats{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--mut);margin:1px 0 4px}
 .pstats b{color:var(--ink);font-size:14px}
 .pstats .ok b{color:var(--green)} .pstats .bad b{color:var(--red)}
@@ -1670,8 +1680,8 @@ function sortTabs(){
 }
 function pickBar(clearLabel){
   return `<div class="psort pick"><span>Взять</span>
-    <button data-pick="top">сильнейших</button><button data-pick="mid">средних</button><button data-pick="low">слабейших</button>
-    <button data-pick="clear">${clearLabel||'снять всех'}</button></div>`;
+    <button data-pick="top">сильных</button><button data-pick="mid">средних</button><button data-pick="low">слабых</button>
+    <button data-pick="clear">${clearLabel||'снять'}</button></div>`;
 }
 // выбрать n бойцов из списка: сверху, снизу или из середины по силе
 function pickBy(list,mode,n){
@@ -1694,7 +1704,7 @@ async function guardPicker(t){
       <div class="row"><span class="n">Слотов ${g.length}/${mx}<small>${(()=>{const nx=guardNext(t);return nx?`ещё ${nx.need} ${plural(nx.need,'прокачка','прокачки','прокачек')} — ${nx.slot}-й слот`:'все слоты открыты';})()}</small></span>
         <span class="v">оборона ${defPower(t)}${help?` <small style="color:var(--green)">+${help} соседи</small>`:''}</span></div>
       ${sortTabs()}
-      ${pickBar('снять охрану')}
+      ${pickBar('снять')}
       <div class="pgrid pick">${cards}</div>
       <div class="mbtns"><button class="ok" id="pOkG">Готово</button></div>`;
     $('card').querySelectorAll('.pcard').forEach(b=>b.onclick=()=>{
@@ -2521,7 +2531,7 @@ async function hospital(){
       <p class="t">Подлатают ${CFG.HOSPITAL_HEAL} на выбор — остальные долежат своё.</p>
       <div class="pstats"><span class="bad">Павших <b>${fallen.length}</b></span><span class="ok">Поднимем <b>${pick.length}/${CFG.HOSPITAL_HEAL}</b></span></div>
       ${sortTabs()}
-      ${pickBar('снять выбор')}
+      ${pickBar('снять')}
       <div class="pgrid pick">${list.map(o=>pCard(o.p,pick.includes(o.p)?'sel':'free',o.i)).join('')}</div>
       <div class="mbtns"><button class="ok" id="hOk" ${pick.length?'':'disabled'}>Поднять ${pick.length}</button></div>`;
     bindSort(paint);
